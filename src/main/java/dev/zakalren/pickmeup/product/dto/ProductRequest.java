@@ -1,4 +1,4 @@
-package dev.zakalren.pickmeup.product;
+package dev.zakalren.pickmeup.product.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

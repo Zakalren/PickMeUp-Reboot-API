@@ -1,5 +1,7 @@
 package dev.zakalren.pickmeup.product;
 
+import dev.zakalren.pickmeup.product.dto.ProductRequest;
+import dev.zakalren.pickmeup.product.dto.ProductResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

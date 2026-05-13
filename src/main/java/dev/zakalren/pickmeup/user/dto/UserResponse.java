@@ -1,4 +1,6 @@
-package dev.zakalren.pickmeup.user;
+package dev.zakalren.pickmeup.user.dto;
+
+import dev.zakalren.pickmeup.user.User;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

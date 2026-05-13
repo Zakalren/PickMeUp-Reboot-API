@@ -1,5 +1,7 @@
 package dev.zakalren.pickmeup.user;
 
+import dev.zakalren.pickmeup.user.dto.UserResponse;
+import dev.zakalren.pickmeup.user.dto.UserSignupRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

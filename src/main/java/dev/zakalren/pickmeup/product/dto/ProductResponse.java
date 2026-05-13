@@ -1,4 +1,6 @@
-package dev.zakalren.pickmeup.product;
+package dev.zakalren.pickmeup.product.dto;
+
+import dev.zakalren.pickmeup.product.Product;
 
 import java.time.LocalDateTime;
 

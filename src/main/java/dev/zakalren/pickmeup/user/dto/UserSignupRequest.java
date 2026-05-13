@@ -1,4 +1,4 @@
-package dev.zakalren.pickmeup.user;
+package dev.zakalren.pickmeup.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
