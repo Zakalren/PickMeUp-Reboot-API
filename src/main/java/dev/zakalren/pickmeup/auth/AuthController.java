@@ -1,9 +1,10 @@
 package dev.zakalren.pickmeup.auth;
 
+import dev.zakalren.pickmeup.auth.dto.LoginRequest;
+import dev.zakalren.pickmeup.auth.dto.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,18 +26,6 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
-
-    public record LoginRequest(
-      @NotBlank String serviceNumber,
-      @NotBlank String password
-    ) {
-    }
-
-    public record LoginResponse(
-       String serviceNumber,
-       String message
-    ) {
-    }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
