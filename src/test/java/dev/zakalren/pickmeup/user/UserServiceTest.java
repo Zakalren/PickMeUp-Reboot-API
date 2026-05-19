@@ -25,7 +25,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserService Unit Test")
+@DisplayName("UserService unit test")
 public class UserServiceTest {
 
     @Mock
