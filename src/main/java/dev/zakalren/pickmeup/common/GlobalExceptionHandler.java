@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("VALIDATION_ERROR", "입력값이 올바르지 않습니다.", fieldErrors));
+                .body(new ErrorResponse("VALIDATION_FAILED", "입력값이 올바르지 않습니다.", fieldErrors));
     }
 
     public record ErrorResponse(
