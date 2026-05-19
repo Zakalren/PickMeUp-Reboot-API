@@ -67,11 +67,11 @@ public class UserControllerTest {
         given(userService.signup(any(UserSignupRequest.class))).willReturn(response);
 
         // when & then
-        mockMvc.perform(post("api/users/signup")
+        mockMvc.perform(post("/api/users/signup")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "api/users/1"))
+                .andExpect(header().string("Location", "/api/users/1"))
                 .andExpect(jsonPath("$.serviceNumber").value("21-12345678"))
                 .andExpect(jsonPath("$.name").value("KIM"))
                 .andExpect(jsonPath("$.password").doesNotExist());
@@ -90,7 +90,7 @@ public class UserControllerTest {
                 """;
 
         // when & then
-        mockMvc.perform(post("api/users/signup")
+        mockMvc.perform(post("/api/users/signup")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(invalidRequest))
                 .andExpect(status().isBadRequest())
@@ -126,7 +126,7 @@ public class UserControllerTest {
     @Test
     @DisplayName("Unauthenticated /me call test")
     void unauthenticated_call() throws Exception {
-        mockMvc.perform(get("api/users/me"))
+        mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -148,7 +148,7 @@ public class UserControllerTest {
         given(userService.findByServiceNumber("21-12345678")).willReturn(response);
 
         // when & then
-        mockMvc.perform(get("api/users/me"))
+        mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceNumber").value("21-12345678"));
     }
