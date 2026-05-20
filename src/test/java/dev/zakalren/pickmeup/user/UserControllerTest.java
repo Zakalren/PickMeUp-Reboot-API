@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -148,7 +149,8 @@ public class UserControllerTest {
         given(userService.findByServiceNumber("21-12345678")).willReturn(response);
 
         // when & then
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/api/users/me")
+                        .with(user("21-12345678").roles("ROLE")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceNumber").value("21-12345678"));
     }
