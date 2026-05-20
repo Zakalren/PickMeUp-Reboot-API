@@ -1,4 +1,4 @@
-package dev.zakalren.pickmeup.common;
+package dev.zakalren.pickmeup.common.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +12,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler
+    @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException exception) {
         Map<String, String> fieldErrors = new HashMap<>();
         exception.getBindingResult().getFieldErrors().forEach(error ->
@@ -23,10 +23,5 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("VALIDATION_FAILED", "입력값이 올바르지 않습니다.", fieldErrors));
     }
 
-    public record ErrorResponse(
-            String code,
-            String message,
-            Map<String, String> fieldErrors
-    ) {
-    }
+
 }

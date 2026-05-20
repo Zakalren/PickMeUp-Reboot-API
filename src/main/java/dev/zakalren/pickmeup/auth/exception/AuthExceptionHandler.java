@@ -1,6 +1,6 @@
 package dev.zakalren.pickmeup.auth.exception;
 
-import dev.zakalren.pickmeup.common.GlobalExceptionHandler;
+import dev.zakalren.pickmeup.common.exception.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -13,8 +13,8 @@ public class AuthExceptionHandler {
 
     // Avoid leaking whether the user exists (preventing enumeration attack)
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
-    public ResponseEntity<GlobalExceptionHandler.ErrorResponse> handleBadCredentials(Exception exception) {
+    public ResponseEntity<ErrorResponse> handleBadCredentials(Exception exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new GlobalExceptionHandler.ErrorResponse("INVALID_CREDENTIALS", "군번 또는 비밀번호가 올바르지 않습니다.", null));
+                .body(new ErrorResponse("INVALID_CREDENTIALS", "군번 또는 비밀번호가 올바르지 않습니다.", null));
     }
 }
