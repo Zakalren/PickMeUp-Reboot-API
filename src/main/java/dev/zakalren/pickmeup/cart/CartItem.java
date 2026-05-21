@@ -33,7 +33,7 @@ public class CartItem {
     private Product product;
 
     @Column(nullable = false)
-    private Long quantity;
+    private Integer quantity;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -43,7 +43,7 @@ public class CartItem {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    public static CartItem create(User user, Product product, Long quantity) {
+    public static CartItem create(User user, Product product, Integer quantity) {
         validateQuantity(quantity);
         CartItem cartItem = new CartItem();
         cartItem.user = user;
@@ -52,22 +52,22 @@ public class CartItem {
         return cartItem;
     }
 
-    public void updateQuantity(Long quantity) {
+    public void updateQuantity(Integer quantity) {
         validateQuantity(quantity);
         this.quantity = quantity;
     }
 
-    public void increaseQuantity(Long amount) {
+    public void increaseQuantity(Integer amount) {
         validateQuantity(this.quantity + amount);
         this.quantity += amount;
     }
 
-    public void decreaseQuantity(Long amount) {
+    public void decreaseQuantity(Integer amount) {
         validateQuantity(this.quantity - amount);
         this.quantity -= amount;
     }
 
-    private static void validateQuantity(Long quantity) {
+    private static void validateQuantity(Integer quantity) {
         if (quantity == null || quantity < 1) {
             throw new IllegalArgumentException("Quantity must be equal or more than 1.");
         }

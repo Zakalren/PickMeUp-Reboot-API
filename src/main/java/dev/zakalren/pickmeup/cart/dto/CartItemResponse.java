@@ -9,8 +9,8 @@ public record CartItemResponse(
         Long productId,
         String productName,
         String productImageUrl,
-        Long productPrice,
-        Long quantity,
+        Integer productPrice,
+        Integer quantity,
         Long totalPrice,
         LocalDateTime createdAt
 ) {
@@ -23,7 +23,7 @@ public record CartItemResponse(
                 cartItem.getProduct().getImageUrl(),
                 cartItem.getProduct().getPrice(),
                 cartItem.getQuantity(),
-                cartItem.getProduct().getPrice() * cartItem.getQuantity(),
+                (long) cartItem.getProduct().getPrice() * cartItem.getQuantity(),
                 cartItem.getCreatedAt()
         );
     }

@@ -9,6 +9,6 @@ public record AddCartItemRequest(
 
         @NotNull(message = "Quantity must not be null.")
         @Min(value = 1, message = "Quantity must be equal or more than 1.")
-        Long quantity
+        Integer quantity
 ) {
 }

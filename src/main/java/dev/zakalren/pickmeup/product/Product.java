@@ -26,7 +26,7 @@ public class Product {
     private String imageUrl;
 
     @Column(nullable = false)
-    private Long price;
+    private Integer price;
 
     @Column(nullable = false, length = 50)
     private String category;
@@ -39,7 +39,7 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    public static Product create(String name, String imageUrl, Long price, String category) {
+    public static Product create(String name, String imageUrl, Integer price, String category) {
         Product product = new Product();
         product.name = name;
         product.imageUrl = imageUrl;
@@ -48,7 +48,7 @@ public class Product {
         return product;
     }
 
-    public void update(String name, String imageUrl, Long price, String category) {
+    public void update(String name, String imageUrl, Integer price, String category) {
         this.name = name;
         this.imageUrl = imageUrl;
         this.price = price;
