@@ -15,7 +15,7 @@ public record ProductRequest(
 
         @NotNull(message = "가격은 필수입니다.")
         @Min(value = 0, message = "가격은 0 이상이어야 합니다.")
-        Integer price,
+        Long price,
 
         @NotBlank(message = "카테고리는 필수입니다.")
         @Size(max = 50)
