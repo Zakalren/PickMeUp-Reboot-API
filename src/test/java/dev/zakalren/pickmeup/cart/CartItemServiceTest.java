@@ -1,5 +1,6 @@
 package dev.zakalren.pickmeup.cart;
 
+import dev.zakalren.pickmeup.cart.dto.AddCartItemRequest;
 import dev.zakalren.pickmeup.cart.dto.CartItemResponse;
 import dev.zakalren.pickmeup.product.Product;
 import dev.zakalren.pickmeup.product.ProductRepository;
@@ -19,7 +20,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CartItemService unit test")
@@ -90,6 +93,62 @@ public class CartItemServiceTest {
             assertThat(responses.get(1).productName()).isEqualTo("Pizza");
             assertThat(responses.get(1).quantity()).isEqualTo(2);
             assertThat(responses.get(1).totalPrice()).isEqualTo(10000);
+        }
+    }
+
+    @Nested
+    @DisplayName("Add")
+    class Add {
+
+        @Test
+        @DisplayName("add new cart item successful test")
+        void add_successful() {
+            // given
+            User user = User.create(
+                    "21-12345678",
+                    "$hashedpassword$",
+                    "KIM",
+                    "ROKAF",
+                    "Private",
+                    LocalDate.of(2002, 11, 8),
+                    "010-1234-5678"
+            );
+            ReflectionTestUtils.setField(user, "id", 1L);
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Product product = Product.create(
+                    "Chips",
+                    "chips.jpg",
+                    1000,
+                    "Snack"
+            );
+            ReflectionTestUtils.setField(product, "id", 10L);
+            given(productRepository.findById(10L))
+                    .willReturn(Optional.of(product));
+
+            given(cartItemRepository.findByUserIdAndProductId(1L, 10L))
+                    .willReturn(Optional.empty());
+
+            CartItem savedItem = CartItem.create(
+                    user,
+                    product,
+                    2
+            );
+            given(cartItemRepository.save(any(CartItem.class)))
+                    .willReturn(savedItem);
+
+            AddCartItemRequest request = new AddCartItemRequest(10L, 2);
+
+            // when
+            CartItemResponse response = cartItemService.add("21-12345678", request);
+
+            // then
+            assertThat(response.productName()).isEqualTo("Chips");
+            assertThat(response.quantity()).isEqualTo(2);
+            assertThat(response.totalPrice()).isEqualTo(2000);
+
+            verify(cartItemRepository).save(any(CartItem.class));
         }
     }
 }
