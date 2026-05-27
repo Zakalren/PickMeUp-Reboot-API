@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -102,7 +103,7 @@ public class CartItemServiceTest {
 
         @Test
         @DisplayName("add new cart item successful test")
-        void add_successful() {
+        void add_newCartItem_successful() {
             // given
             User user = User.create(
                     "21-12345678",
@@ -149,6 +150,49 @@ public class CartItemServiceTest {
             assertThat(response.totalPrice()).isEqualTo(2000);
 
             verify(cartItemRepository).save(any(CartItem.class));
+        }
+
+        @Test
+        @DisplayName("add existing cart item successful test")
+        void add_existingCartItem_successful() {
+            // given
+            User user = User.create(
+                    "21-12345678",
+                    "$hashedpassword$",
+                    "KIM",
+                    "ROKAF",
+                    "Private",
+                    LocalDate.of(2002, 11, 8),
+                    "010-1234-5678"
+            );
+            ReflectionTestUtils.setField(user, "id", 1L);
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Product product = Product.create(
+                    "Chips",
+                    "chips.jpg",
+                    1000,
+                    "Snack"
+            );
+            ReflectionTestUtils.setField(product, "id", 10L);
+            given(productRepository.findById(10L))
+                    .willReturn(Optional.of(product));
+
+            CartItem existing = CartItem.create(user, product, 1);
+            given(cartItemRepository.findByUserIdAndProductId(1L, 10L))
+                    .willReturn(Optional.of(existing));
+
+            AddCartItemRequest request = new AddCartItemRequest(10L, 2);
+
+            // when
+            CartItemResponse response = cartItemService.add("21-12345678", request);
+
+            // then
+            assertThat(response.quantity()).isEqualTo(3);
+            assertThat(response.totalPrice()).isEqualTo(3000L);
+
+            verify(cartItemRepository, never()).save(any(CartItem.class));
         }
     }
 }
