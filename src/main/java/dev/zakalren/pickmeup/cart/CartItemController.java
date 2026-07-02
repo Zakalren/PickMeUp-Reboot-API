@@ -41,7 +41,7 @@ public class CartItemController {
                 .body(created);
     }
 
-    @PutMapping("/${cartItemId}")
+    @PutMapping("/{cartItemId}")
     public ResponseEntity<CartItemResponse> update(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long cartItemId,
@@ -52,7 +52,7 @@ public class CartItemController {
         );
     }
 
-    @DeleteMapping("/${cartItemId}")
+    @DeleteMapping("/{cartItemId}")
     public ResponseEntity<Void> delete(
         @AuthenticationPrincipal UserDetails userDetails,
         @PathVariable Long cartItemId
