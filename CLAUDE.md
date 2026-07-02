@@ -62,18 +62,24 @@ dev.zakalren.pickmeup
 - User domain (entity, repository, service, controller, DTOs, exceptions)
 - Product domain (full CRUD)
 - Spring Security session-based authentication
-- Per-domain exception handlers
+  (+ session fixation protection, SameSite=Lax cookie)
+- Per-domain exception handlers (scoped via assignableTypes)
+- Role-based authorization (UserRole USER/ADMIN; product writes are
+  admin-only)
 - Test pyramid for User/Auth flows
 - CartItem entity, repository, service, controller, DTOs
-- CartItemServiceTest (findByUser, add, update, delete) — all passing
+- CartItemServiceTest, CartItemRepositoryTest (N+1 verification),
+  CartItemControllerTest, ProductControllerTest
+- Flyway migrations (V1 init, V2 user role) + Docker Compose for MySQL
+- Dev-profile CORS; prod is same-origin behind a reverse proxy
 
 🚧 In Progress:
-- CartItemRepositoryTest (slice test with N+1 verification using
-  Hibernate Statistics API)
+- Improvement backlog: see docs/IMPROVEMENTS.md (처리 현황 section)
 
 📅 Planned:
-- CartItemControllerTest (@WebMvcTest)
-- Docker Compose for MySQL prod profile
+- Verify Flyway V1/V2 against real MySQL (docker compose up, prod profile)
+- Error response format unification (extend ResponseEntityExceptionHandler)
+- Cart concurrency handling (unique-violation on add, optimistic locking)
 - CI/CD pipeline
 
 ## Communication Preferences
