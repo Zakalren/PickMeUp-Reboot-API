@@ -7,6 +7,10 @@ spring:
     # Fail fast on lazy loading outside a transaction instead of
     # silently running N+1 queries during response serialization
     open-in-view: false
+  flyway:
+    # Migrations are written in MySQL dialect; only the prod profile runs them.
+    # Dev/test keep H2 with ddl-auto: create-drop.
+    enabled: false
 
 server:
   port: 8080
@@ -57,3 +61,5 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+  flyway:
+    enabled: true
