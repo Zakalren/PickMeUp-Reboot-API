@@ -1,12 +1,13 @@
 package dev.zakalren.pickmeup.product.exception;
 
 import dev.zakalren.pickmeup.common.exception.ErrorResponse;
+import dev.zakalren.pickmeup.product.ProductController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = ProductController.class)
 public class ProductExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException.class)

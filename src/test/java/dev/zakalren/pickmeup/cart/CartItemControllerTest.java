@@ -5,6 +5,7 @@ import dev.zakalren.pickmeup.cart.dto.CartItemResponse;
 import dev.zakalren.pickmeup.cart.dto.UpdateCartItemRequest;
 import dev.zakalren.pickmeup.cart.exception.CartItemNotFoundException;
 import dev.zakalren.pickmeup.config.SecurityConfig;
+import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -117,6 +118,25 @@ public class CartItemControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.fieldErrors.quantity").exists());
+    }
+
+    @Test
+    @DisplayName("Add missing product test")
+    void add_productNotFound() throws Exception {
+        // given: 존재하지 않는 상품 — 스코핑된 CartExceptionHandler가
+        // 타 도메인 예외(ProductNotFoundException)도 처리하는지 검증
+        AddCartItemRequest request = new AddCartItemRequest(999L, 2);
+
+        given(cartItemService.add(eq(SERVICE_NUMBER), any(AddCartItemRequest.class)))
+                .willThrow(new ProductNotFoundException(999L));
+
+        // when & then
+        mockMvc.perform(post("/api/cart-items")
+                        .with(user(SERVICE_NUMBER).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
     }
 
     @Test
