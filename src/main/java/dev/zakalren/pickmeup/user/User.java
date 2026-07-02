@@ -34,7 +34,8 @@ public class User {
     @Column(name = "affiliated_unit", length = 100)
     private String affiliatedUnit;
 
-    @Column(length = 20)
+    // RANK is a reserved word in MySQL 8, so the column needs an explicit name
+    @Column(name = "military_rank", length = 20)
     private String rank;
 
     @Column(name = "date_of_birth")
