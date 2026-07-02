@@ -44,6 +44,10 @@ public class User {
     @Column(name = "tel_number", length = 20)
     private String telNumber;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -69,6 +73,7 @@ public class User {
         user.rank = rank;
         user.dateOfBirth = dateOfBirth;
         user.telNumber = telNumber;
+        user.role = UserRole.USER;
         return user;
     }
 }
