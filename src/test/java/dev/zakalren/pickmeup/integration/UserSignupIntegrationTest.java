@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -93,6 +94,42 @@ public class UserSignupIntegrationTest {
     void me_withoutLogin() throws Exception {
         mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Session id rotation on login test")
+    void login_rotatesSessionId() throws Exception {
+        // 1. Signup
+        UserSignupRequest signupRequest = new UserSignupRequest(
+                "21-12345678",
+                "password1234",
+                "KIM",
+                "ROKAF",
+                "Private",
+                LocalDate.of(2002, 11, 8),
+                "010-1234-5678"
+        );
+        mockMvc.perform(post("/api/users/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(signupRequest)))
+                .andExpect(status().isCreated());
+
+        // 2. 로그인 전에 이미 세션이 존재하는 상황 (세션 고정 공격 시나리오)
+        MockHttpSession preLoginSession = new MockHttpSession();
+        String preLoginId = preLoginSession.getId();
+
+        LoginRequest loginRequest = new LoginRequest(
+                "21-12345678",
+                "password1234"
+        );
+        mockMvc.perform(post("/api/auth/login")
+                    .session(preLoginSession)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk());
+
+        // 3. 로그인 성공 후에는 세션 id가 회전되어야 함
+        assertThat(preLoginSession.getId()).isNotEqualTo(preLoginId);
     }
 
     @Test

@@ -40,6 +40,12 @@ public class AuthController {
                 )
         );
 
+        // Manual authentication bypasses the session fixation protection the
+        // filter chain applies on form login, so rotate the session id here.
+        if (httpRequest.getSession(false) != null) {
+            httpRequest.changeSessionId();
+        }
+
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
