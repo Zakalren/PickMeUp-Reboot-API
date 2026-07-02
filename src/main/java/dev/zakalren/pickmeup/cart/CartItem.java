@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "cart_items", indexes = {
-        @Index(name = "idx_cart_items_user", columnList = "user_id"),
+        // The unique composite index's leftmost prefix already covers user_id-only lookups
         @Index(name = "idx_cart_items_user_product", columnList = "user_id, product_id", unique = true)
 })
 @Getter
