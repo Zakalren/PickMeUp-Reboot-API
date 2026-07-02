@@ -71,13 +71,15 @@ dev.zakalren.pickmeup
 - CartItemServiceTest, CartItemRepositoryTest (N+1 verification),
   CartItemControllerTest, ProductControllerTest
 - Flyway migrations (V1 init, V2 user role) + Docker Compose for MySQL
+  — verified against MySQL 8.4 (validate passes, full auth/cart smoke test)
+  — note: Boot 4 needs the spring-boot-flyway module, flyway-core alone
+    does not auto-configure
 - Dev-profile CORS; prod is same-origin behind a reverse proxy
 
 🚧 In Progress:
 - Improvement backlog: see docs/IMPROVEMENTS.md (처리 현황 section)
 
 📅 Planned:
-- Verify Flyway V1/V2 against real MySQL (docker compose up, prod profile)
 - Error response format unification (extend ResponseEntityExceptionHandler)
 - Cart concurrency handling (unique-violation on add, optimistic locking)
 - CI/CD pipeline

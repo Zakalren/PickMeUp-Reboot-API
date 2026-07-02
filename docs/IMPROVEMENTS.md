@@ -7,8 +7,10 @@
 
 - ✅ 완료: #1(+CartItemControllerTest), #2, #3, #4(SameSite=Lax), #5(+ProductControllerTest),
   #6(H2 콘솔 developmentOnly), #8, #10(dev CORS + prod 리버스 프록시 결정), #11, #12, #14, #16, #20
-- ⏳ 보류: #12의 MySQL 실검증 — Docker 데몬이 꺼져 있어 prod 프로파일 기동 확인 필요
-  (`docker compose up -d` 후 `--spring.profiles.active=prod`로 validate 통과 확인)
+- ✅ #12 MySQL 실검증 완료 (2026-07-03): Flyway V1/V2 적용 → Hibernate validate 통과 →
+  가입/로그인/장바구니/권한(403)/로그아웃 스모크 테스트 전부 정상.
+  단, Boot 4는 Flyway 자동구성이 별도 모듈이라 `spring-boot-flyway` 의존성이 필요했음
+  (flyway-core만으로는 자동구성이 동작하지 않아 validate가 빈 스키마에서 실패).
 - 📋 남은 항목: #7(로그인 rate limiting), #9(에러 응답 포맷 통일), #13(장바구니 동시성),
   #15(페이지네이션), #17(SecurityContextRepository 공유), #18(fieldErrors null 직렬화),
   #19(미사용 리포지토리 메서드), #21(재고 개념), Swagger prod 차단(#6 잔여),
