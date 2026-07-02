@@ -47,10 +47,12 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:mysql://localhost:3006/pickmeup?serverTimezone=Asia/Tokyo&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/pickmeup?serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USERNAME:}
-    password: ${DB_PASSWORD:}
+    # No default values: fail at startup when credentials are missing,
+    # instead of surfacing as an opaque connection error later
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
