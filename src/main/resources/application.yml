@@ -3,6 +3,10 @@ spring:
     name: pickmeup-api
   profiles:
     active: dev
+  jpa:
+    # Fail fast on lazy loading outside a transaction instead of
+    # silently running N+1 queries during response serialization
+    open-in-view: false
 
 server:
   port: 8080
