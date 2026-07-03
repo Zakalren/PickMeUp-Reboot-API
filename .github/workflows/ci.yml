@@ -97,13 +97,22 @@ jobs:
           kill "$APP_PID"
           exit 1
 
-  # Builds the container image and publishes it to GHCR, but only after
-  # both verification jobs pass and only for commits on main (PRs from
-  # forks have no write token, and unmerged code should not be published).
+  # Builds the container image per architecture on native runners (QEMU
+  # emulation would make the Gradle build take 15+ minutes on arm64) and
+  # publishes arch-suffixed tags. Runs only after both verification jobs
+  # pass and only for commits on main (PRs from forks have no write token,
+  # and unmerged code should not be published).
   build-image:
     needs: [ test, prod-boot-check ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -119,22 +128,73 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Derives image tags: :latest for main, plus the immutable :sha-<commit>
-      - name: Derive image metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest
-            type=sha
+      - name: Derive short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
-      - name: Build and push
+      - name: Build and push (per-arch)
         uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: linux/${{ matrix.arch }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ghcr.io/zakalren/pickmeup-reboot-api:sha-${{ env.SHORT_SHA }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+  # Stitches the per-arch images into one multi-arch manifest so that
+  # :latest and :sha-<commit> pull the right architecture anywhere
+  # (amd64 dev machines, the arm64 OCI instance).
+  merge-image:
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          IMAGE=ghcr.io/zakalren/pickmeup-reboot-api
+          docker buildx imagetools create \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:sha-$SHORT_SHA" \
+            "$IMAGE:sha-$SHORT_SHA-amd64" \
+            "$IMAGE:sha-$SHORT_SHA-arm64"
+
+  # Pulls the fresh image on the OCI instance and restarts only the app
+  # service. Requires repo secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY.
+  deploy:
+    needs: merge-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
+            'cd /opt/pickmeup && docker compose pull app && docker compose up -d app && docker image prune -f'
+
+      - name: Smoke test through nginx
+        run: |
+          sleep 10
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://pickmeup.zakalren.dev/api/products || true)
+            if [ "$code" = "200" ]; then
+              echo "Deployment is live (HTTP $code)."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Smoke test failed (last HTTP code: $code)."
+          exit 1
