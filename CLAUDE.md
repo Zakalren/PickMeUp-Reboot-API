@@ -91,8 +91,12 @@ dev.zakalren.pickmeup
 - CI build-image job publishes to GHCR (:latest + :sha-<commit>) after
   both verification jobs pass, main pushes only
 
-📅 Planned:
-- CD stage B/C: pick a deploy target (PaaS or VM) and automate deploy
+✅ CD (stage C, OCI arm64 instance):
+- Multi-arch image build (native amd64/arm64 runners + manifest merge)
+- Deploy job: SSH → compose pull/up on /opt/pickmeup, nginx smoke test
+- Server: app on 127.0.0.1:8090 behind nginx (pickmeup.zakalren.dev,
+  wildcard TLS), MySQL container without published ports
+- Dedicated deploy keypair (~/.ssh/pickmeup-deploy.key, WSL)
 - Error response format unification (extend ResponseEntityExceptionHandler)
 - Cart concurrency handling (unique-violation on add, optimistic locking)
 
