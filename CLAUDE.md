@@ -84,8 +84,14 @@ dev.zakalren.pickmeup
 - prod-boot-check job: boots prod profile against MySQL 8.4 service
   container (Flyway + validate + HTTP smoke)
 
+✅ CD (stage A):
+- Multi-stage Dockerfile (Corretto 25 build / Alpine non-root runtime,
+  Boot layer extraction), verified against compose MySQL
+- CI build-image job publishes to GHCR (:latest + :sha-<commit>) after
+  both verification jobs pass, main pushes only
+
 📅 Planned:
-- CD: build/push Docker image, pick a deploy target
+- CD stage B/C: pick a deploy target (PaaS or VM) and automate deploy
 - Error response format unification (extend ResponseEntityExceptionHandler)
 - Cart concurrency handling (unique-violation on add, optimistic locking)
 
