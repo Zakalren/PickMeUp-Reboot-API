@@ -121,7 +121,48 @@ public class UserControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DUPLICATE_USER"));
+                .andExpect(jsonPath("$.code").value("DUPLICATE_USER"))
+                // @JsonInclude(NON_NULL): 검증 오류가 아니면 fieldErrors가 노출되지 않아야 함
+                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Malformed JSON request test")
+    void signup_malformedJson() throws Exception {
+        // when & then: 파싱 불가 JSON도 Boot 기본 포맷이 아닌 통일된 ErrorResponse로 응답
+        mockMvc.perform(post("/api/users/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{ invalid json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Unexpected exception test")
+    void signup_unexpectedException() throws Exception {
+        // given
+        UserSignupRequest request = new UserSignupRequest(
+                "21-12345678",
+                "password1234",
+                "KIM",
+                "ROKAF",
+                "Private",
+                LocalDate.of(2002, 11, 8),
+                "010-1234-5678"
+        );
+
+        given(userService.signup(any(UserSignupRequest.class)))
+                .willThrow(new RuntimeException("DB connection lost"));
+
+        // when & then: 미처리 예외도 통일된 포맷으로, 내부 메시지는 노출하지 않음
+        mockMvc.perform(post("/api/users/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
     }
 
     @Test

@@ -11,8 +11,13 @@
   가입/로그인/장바구니/권한(403)/로그아웃 스모크 테스트 전부 정상.
   단, Boot 4는 Flyway 자동구성이 별도 모듈이라 `spring-boot-flyway` 의존성이 필요했음
   (flyway-core만으로는 자동구성이 동작하지 않아 validate가 빈 스키마에서 실패).
-- 📋 남은 항목: #7(로그인 rate limiting), #9(에러 응답 포맷 통일), #13(장바구니 동시성),
-  #15(페이지네이션), #17(SecurityContextRepository 공유), #18(fieldErrors null 직렬화),
+- ✅ #9, #18 완료 (2026-07-04): `GlobalExceptionHandler`가 `ResponseEntityExceptionHandler`를
+  상속 — 프레임워크 예외(파싱 실패, 타입 미스매치 등)와 미처리 Exception(500, 내부 메시지
+  비노출)까지 전부 `ErrorResponse` 포맷으로 통일. `ErrorResponse`는 `@JsonInclude(NON_NULL)`
+  + `of()` 정적 팩토리. 주의: advice 간에는 예외 구체성이 아니라 **순서**로 핸들러가
+  결정되므로, 전역 catch-all이 도메인 예외를 삼키지 않도록 도메인 advice 4개에 `@Order(1)` 부여.
+- 📋 남은 항목: #7(로그인 rate limiting), #13(장바구니 동시성),
+  #15(페이지네이션), #17(SecurityContextRepository 공유),
   #19(미사용 리포지토리 메서드), #21(재고 개념), Swagger prod 차단(#6 잔여),
   ProductService 단위 테스트, 로그아웃 테스트, Testcontainers 기반 prod 스키마 검증
 

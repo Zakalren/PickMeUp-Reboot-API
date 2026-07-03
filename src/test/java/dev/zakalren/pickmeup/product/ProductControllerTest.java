@@ -72,6 +72,16 @@ public class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("Path variable type mismatch test")
+    void findById_typeMismatch() throws Exception {
+        // when & then: Long 변환 실패(/api/products/abc)도 통일된 ErrorResponse 포맷으로 400
+        mockMvc.perform(get("/api/products/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+    }
+
+    @Test
     @DisplayName("Create product as admin test")
     void create_asAdmin() throws Exception {
         // given
