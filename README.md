@@ -34,8 +34,9 @@ This is a **learning-driven portfolio project**, not a production system. Every 
 | **API Docs** | springdoc-openapi 3 (Swagger UI) |
 | **Testing** | JUnit 5, Mockito, AssertJ, Spring Security Test |
 | **Auth** | Session-based + BCrypt, role-based authorization (see decisions below) |
-| **CI/CD** | GitHub Actions (test + prod-profile boot check → Docker image on GHCR), Dependabot |
+| **CI/CD** | GitHub Actions (test + prod-profile boot check → multi-arch image on GHCR → SSH deploy), Dependabot |
 | **Container** | Multi-stage Dockerfile (Temurin 25 JDK build / JRE-alpine non-root runtime) |
+| **Deployment** | OCI arm64 instance, nginx reverse proxy + TLS (same-origin topology) |
 
 ## 🧠 Architectural Decisions
 
@@ -205,9 +206,12 @@ push / PR
    ├── test             Gradle build + full test pyramid (H2)
    ├── prod-boot-check  Boots prod profile against MySQL 8.4 service container:
    │                    Flyway migrations → Hibernate validate → HTTP smoke test
-   └── build-image      (main pushes only, after both pass)
-                        Multi-stage Docker build → GHCR
-                        tags: :latest + immutable :sha-<commit>
+   ├── build-image      (main pushes only, after both pass)
+   │                    Multi-stage Docker build on native amd64 + arm64 runners
+   ├── merge-image      Stitches per-arch images into one multi-arch manifest → GHCR
+   │                    tags: :latest + immutable :sha-<commit>
+   └── deploy           SSH to the OCI arm64 instance → compose pull/up,
+                        then smoke test through the nginx reverse proxy
 ```
 
 Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/patch grouped), and Docker base images — each gated by the same pipeline.
@@ -228,17 +232,21 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 - Flyway schema migrations (V1 init, V2 user role) + Docker Compose for MySQL
 - Multi-stage Dockerfile (Temurin 25, JRE-alpine non-root runtime, Boot layer extraction)
 - CI/CD: GitHub Actions (test + prod-boot-check → GHCR publish), Dependabot
+- Deployment (CD stage C): multi-arch images (native amd64/arm64 builds +
+  manifest merge) auto-deployed over SSH to an OCI arm64 instance behind an
+  nginx reverse proxy with TLS — realizing the same-origin topology decision
+- Unified error response format: every error — domain, validation, framework
+  (unreadable JSON, type mismatch), unhandled 500 — returns the same
+  `ErrorResponse` shape via `ResponseEntityExceptionHandler`
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
 ### 🚧 In Progress
 
-- Deployment (CD stage C): VM behind an nginx reverse proxy,
-  completing the same-origin topology decision
+- Working through the improvement backlog ([`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md))
 
 ### 📅 Planned
 
-- Error response format unification (`ResponseEntityExceptionHandler`)
 - Cart concurrency handling (unique-violation on concurrent add, optimistic locking)
 - Pagination for product listing
 - README extension with API endpoint reference

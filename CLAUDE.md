@@ -13,7 +13,7 @@ Goals:
 ## Tech Stack
 
 - Java 25 LTS
-- Spring Boot 4.0.6
+- Spring Boot 4.1.0
 - Spring Security 6
 - Spring Data JPA + Hibernate
 - H2 (dev) / MySQL (prod)
@@ -51,54 +51,30 @@ Goals:
 dev.zakalren.pickmeup
 ├── user/
 ├── product/
-├── cart/             (in progress)
+├── cart/
 ├── auth/
 ├── config/
 └── common/
 
 ## Current Progress
 
-✅ Completed:
-- User domain (entity, repository, service, controller, DTOs, exceptions)
-- Product domain (full CRUD)
-- Spring Security session-based authentication
-  (+ session fixation protection, SameSite=Lax cookie)
-- Per-domain exception handlers (scoped via assignableTypes)
-- Role-based authorization (UserRole USER/ADMIN; product writes are
-  admin-only)
-- Test pyramid for User/Auth flows
-- CartItem entity, repository, service, controller, DTOs
-- CartItemServiceTest, CartItemRepositoryTest (N+1 verification),
-  CartItemControllerTest, ProductControllerTest
-- Flyway migrations (V1 init, V2 user role) + Docker Compose for MySQL
-  — verified against MySQL 8.4 (validate passes, full auth/cart smoke test)
-  — note: Boot 4 needs the spring-boot-flyway module, flyway-core alone
-    does not auto-configure
-- Dev-profile CORS; prod is same-origin behind a reverse proxy
+Where progress is tracked (don't duplicate between these):
+- **README.md** — public-facing summary (completed / in progress / planned)
+- **docs/IMPROVEMENTS.md** — improvement backlog + completed items with
+  reasoning (처리 현황 section). When an improvement lands, record it there
+  and update README's Progress section; do not mirror the details here.
 
-🚧 In Progress:
-- Improvement backlog: see docs/IMPROVEMENTS.md (처리 현황 section)
+Quick orientation: all four domains (user, product, cart, auth) are
+implemented with the full test pyramid, session auth + role-based
+authorization, Flyway migrations, unified ErrorResponse error format.
+CI/CD runs test + prod-boot-check (MySQL 8.4) → multi-arch image on GHCR
+→ SSH deploy to an OCI arm64 instance.
 
-✅ CI (GitHub Actions, .github/workflows/ci.yml):
-- test job: gradle build on H2
-- prod-boot-check job: boots prod profile against MySQL 8.4 service
-  container (Flyway + validate + HTTP smoke)
-
-✅ CD (stage A):
-- Multi-stage Dockerfile (Temurin 25 JDK build / JRE-alpine non-root
-  runtime, Boot layer extraction), verified against compose MySQL
-  — same JDK distribution as CI runners (setup-java: temurin)
-- CI build-image job publishes to GHCR (:latest + :sha-<commit>) after
-  both verification jobs pass, main pushes only
-
-✅ CD (stage C, OCI arm64 instance):
-- Multi-arch image build (native amd64/arm64 runners + manifest merge)
-- Deploy job: SSH → compose pull/up on /opt/pickmeup, nginx smoke test
-- Server: app on 127.0.0.1:8090 behind nginx (pickmeup.zakalren.dev,
-  wildcard TLS), MySQL container without published ports
-- Dedicated deploy keypair (~/.ssh/pickmeup-deploy.key, WSL)
-- Error response format unification (extend ResponseEntityExceptionHandler)
-- Cart concurrency handling (unique-violation on add, optimistic locking)
+Environment facts not recorded in the repo:
+- Deploy keypair: ~/.ssh/pickmeup-deploy.key (WSL side)
+- Server: /opt/pickmeup, app on 127.0.0.1:8090 behind nginx
+  (pickmeup.zakalren.dev, wildcard TLS), MySQL container without
+  published ports; nginx config lives on the server only
 
 ## Communication Preferences
 
