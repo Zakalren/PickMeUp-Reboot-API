@@ -79,10 +79,15 @@ dev.zakalren.pickmeup
 🚧 In Progress:
 - Improvement backlog: see docs/IMPROVEMENTS.md (처리 현황 section)
 
+✅ CI (GitHub Actions, .github/workflows/ci.yml):
+- test job: gradle build on H2
+- prod-boot-check job: boots prod profile against MySQL 8.4 service
+  container (Flyway + validate + HTTP smoke)
+
 📅 Planned:
+- CD: build/push Docker image, pick a deploy target
 - Error response format unification (extend ResponseEntityExceptionHandler)
 - Cart concurrency handling (unique-violation on add, optimistic locking)
-- CI/CD pipeline
 
 ## Communication Preferences
 
