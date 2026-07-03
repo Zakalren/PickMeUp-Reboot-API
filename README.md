@@ -2,8 +2,9 @@
 
 > A Spring Boot REST API rebuilt from a **2021 ROK Air Force Hackathon award-winning project**, migrating a Node.js + Express + EJS monolith to a modern Java backend with intentional architectural decisions.
 
+[![CI](https://github.com/Zakalren/PickMeUp-Reboot-API/actions/workflows/ci.yml/badge.svg)](https://github.com/Zakalren/PickMeUp-Reboot-API/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.6-brightgreen?logo=springboot)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-brightgreen?logo=springboot)
 ![Spring Security](https://img.shields.io/badge/Spring%20Security-6-green?logo=springsecurity)
 ![JPA](https://img.shields.io/badge/JPA-Hibernate-blue)
 ![Tests](https://img.shields.io/badge/Tests-JUnit%205-red?logo=junit5)
@@ -26,12 +27,15 @@ This is a **learning-driven portfolio project**, not a production system. Every 
 | Layer | Tools |
 |---|---|
 | **Language** | Java 25 LTS |
-| **Framework** | Spring Boot 4.0.6, Spring Security 6 |
-| **Persistence** | Spring Data JPA, Hibernate, H2 (dev) / MySQL (prod) |
+| **Framework** | Spring Boot 4.1.0, Spring Security 6 |
+| **Persistence** | Spring Data JPA, Hibernate, H2 (dev) / MySQL 8.4 (prod) |
+| **Schema Migration** | Flyway (versioned SQL, `ddl-auto: validate` in prod) |
 | **Build** | Gradle (Kotlin DSL) |
 | **API Docs** | springdoc-openapi 3 (Swagger UI) |
 | **Testing** | JUnit 5, Mockito, AssertJ, Spring Security Test |
-| **Auth** | Session-based + BCrypt (see decision below) |
+| **Auth** | Session-based + BCrypt, role-based authorization (see decisions below) |
+| **CI/CD** | GitHub Actions (test + prod-profile boot check → Docker image on GHCR), Dependabot |
+| **Container** | Multi-stage Dockerfile (Temurin 25 JDK build / JRE-alpine non-root runtime) |
 
 ## 🧠 Architectural Decisions
 
@@ -71,13 +75,19 @@ dev.zakalren.pickmeup
 │   ├── ...
 │   ├── dto/
 │   └── exception/
-├── cart/             (in progress)
+├── cart/
+│   ├── CartItem.java
+│   ├── CartItemController.java
+│   ├── ...
+│   ├── dto/
+│   └── exception/
 ├── auth/
 │   ├── AuthController.java
 │   ├── dto/
 │   └── exception/
 ├── config/
-│   └── SecurityConfig.java
+│   ├── SecurityConfig.java
+│   └── CorsConfig.java   (dev profile only)
 └── common/
     └── GlobalExceptionHandler.java
 ```
@@ -101,14 +111,23 @@ user.updateQuantity(newQuantity);                         // domain operation
 
 ### 5. Per-Domain Exception Handlers
 
-Instead of a single `GlobalExceptionHandler` accumulating handlers from every domain, each domain has its own `@RestControllerAdvice`:
+Instead of a single `GlobalExceptionHandler` accumulating handlers from every domain, each domain has its own `@RestControllerAdvice` **scoped to its own controller via `assignableTypes`** (an unscoped advice silently applies globally — package placement alone does not isolate it):
 
 - `UserExceptionHandler` — `UserNotFoundException`, `DuplicateUserException`
 - `ProductExceptionHandler` — `ProductNotFoundException`
+- `CartExceptionHandler` — cart exceptions plus the cross-domain not-found exceptions cart endpoints can surface
 - `AuthExceptionHandler` — authentication-related exceptions
 - `GlobalExceptionHandler` (in `common/`) — only cross-cutting concerns (validation, unhandled exceptions)
 
 The shared `ErrorResponse` record stays in `common`. This keeps each domain self-contained.
+
+### 6. Same-Origin Deployment Topology
+
+Prod serves the front-end and API from **one origin behind a reverse proxy**. Combined with session-cookie auth this keeps `SameSite=Lax` effective as CSRF mitigation and requires no CORS in production; CORS is opened only in the dev profile for a locally served front-end. Cross-origin deployment would force `SameSite=None` cookies plus CSRF tokens — a deliberate trade-off decision.
+
+### 7. CI Verifies the Prod Profile, Not Just Tests
+
+H2-based tests cannot catch prod-only failures (MySQL reserved words, missing Flyway auto-configuration, schema drift). The CI pipeline therefore boots the actual prod profile against a real MySQL 8.4 service container on every push — Flyway migrations apply, Hibernate `validate` passes, and the app must answer HTTP before an image is published.
 
 ## 🧪 Testing Strategy
 
@@ -132,9 +151,10 @@ This project follows the **test pyramid**:
 | Type | Examples |
 |---|---|
 | **Unit (Mockito)** | `UserServiceTest`, `CartItemServiceTest` — verifies business logic in isolation |
-| **Slice — Repository** | `UserRepositoryTest` (`@DataJpaTest`) — verifies JPA query generation against real H2 |
-| **Slice — Controller** | `UserControllerTest`, `AuthControllerTest` (`@WebMvcTest`) — verifies HTTP layer + Spring Security |
-| **Integration** | `UserSignupIntegrationTest` (`@SpringBootTest`) — verifies signup → login → authenticated request flow |
+| **Slice — Repository** | `UserRepositoryTest`, `CartItemRepositoryTest` (`@DataJpaTest`) — JPA query generation, N+1 detection via Hibernate Statistics |
+| **Slice — Controller** | `UserControllerTest`, `AuthControllerTest`, `CartItemControllerTest`, `ProductControllerTest` (`@WebMvcTest`) — HTTP layer, Spring Security, role-based access rules |
+| **Integration** | `UserSignupIntegrationTest` (`@SpringBootTest`) — signup → login → authenticated request flow, session-id rotation on login |
+| **CI-only** | `prod-boot-check` job — boots the prod profile against real MySQL 8.4 (Flyway + `validate` + HTTP smoke) |
 
 ## 🚀 Running Locally
 
@@ -144,7 +164,21 @@ cd PickMeUp-Reboot-API
 ./gradlew bootRun
 ```
 
-The application starts on `http://localhost:8080`.
+The application starts on `http://localhost:8080` (dev profile, in-memory H2).
+
+### Prod Profile (MySQL + Flyway)
+
+```bash
+docker compose up -d   # MySQL 8.4 with healthcheck
+DB_USERNAME=pickmeup DB_PASSWORD=pickmeup-local \
+  ./gradlew bootRun --args='--spring.profiles.active=prod'
+```
+
+Or run the published container image:
+
+```bash
+docker pull ghcr.io/zakalren/pickmeup-reboot-api:latest
+```
 
 ### Quick Verification
 
@@ -162,30 +196,52 @@ The application starts on `http://localhost:8080`.
 
 HTML report is generated at `build/reports/tests/test/index.html`.
 
+## ⚙️ CI/CD Pipeline
+
+Every push and PR runs `.github/workflows/ci.yml`:
+
+```
+push / PR
+   ├── test             Gradle build + full test pyramid (H2)
+   ├── prod-boot-check  Boots prod profile against MySQL 8.4 service container:
+   │                    Flyway migrations → Hibernate validate → HTTP smoke test
+   └── build-image      (main pushes only, after both pass)
+                        Multi-stage Docker build → GHCR
+                        tags: :latest + immutable :sha-<commit>
+```
+
+Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/patch grouped), and Docker base images — each gated by the same pipeline.
+
 ## 📊 Progress
 
 ### ✅ Completed
 
 - User domain (entity, repository, service, controller, DTOs, exceptions)
 - Product domain (full CRUD)
-- Spring Security session-based authentication
-- BCrypt password hashing
-- Per-domain exception handlers
-- Global validation handler
-- Swagger UI integration
-- Test pyramid: unit + slice + integration tests for User/Auth flows
+- Cart domain with JPA associations (`@ManyToOne` to User and Product,
+  fetch join + Hibernate Statistics N+1 verification)
+- Spring Security session-based authentication, hardened:
+  session-fixation protection (session-id rotation on login),
+  `SameSite=Lax` / `HttpOnly` session cookie
+- Role-based authorization (`USER`/`ADMIN` — product management is admin-only)
+- Per-domain exception handlers, properly scoped with `assignableTypes`
+- Flyway schema migrations (V1 init, V2 user role) + Docker Compose for MySQL
+- Multi-stage Dockerfile (Temurin 25, JRE-alpine non-root runtime, Boot layer extraction)
+- CI/CD: GitHub Actions (test + prod-boot-check → GHCR publish), Dependabot
+- Test pyramid across all domains: unit + slice + integration
+- Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
 ### 🚧 In Progress
 
-- **Cart domain with JPA associations** (`@ManyToOne` to User and Product)
-  - Demonstrating `fetch join` to prevent N+1 problems
-- Cart domain test coverage
+- Deployment (CD stage C): VM behind an nginx reverse proxy,
+  completing the same-origin topology decision
 
 ### 📅 Planned
 
+- Error response format unification (`ResponseEntityExceptionHandler`)
+- Cart concurrency handling (unique-violation on concurrent add, optimistic locking)
+- Pagination for product listing
 - README extension with API endpoint reference
-- Docker Compose setup for MySQL prod profile
-- CI pipeline (GitHub Actions): build + test on PR
 
 ## 📚 Original Project
 
