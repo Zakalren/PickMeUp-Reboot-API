@@ -85,8 +85,9 @@ dev.zakalren.pickmeup
   container (Flyway + validate + HTTP smoke)
 
 ✅ CD (stage A):
-- Multi-stage Dockerfile (Corretto 25 build / Alpine non-root runtime,
-  Boot layer extraction), verified against compose MySQL
+- Multi-stage Dockerfile (Temurin 25 JDK build / JRE-alpine non-root
+  runtime, Boot layer extraction), verified against compose MySQL
+  — same JDK distribution as CI runners (setup-java: temurin)
 - CI build-image job publishes to GHCR (:latest + :sha-<commit>) after
   both verification jobs pass, main pushes only
 

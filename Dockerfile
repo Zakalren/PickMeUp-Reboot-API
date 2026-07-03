@@ -1,9 +1,7 @@
 # ---- Build stage: compile and package with the full JDK ----
-FROM amazoncorretto:25 AS build
+# Temurin matches the JDK the CI runners test with (setup-java: temurin)
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
-
-# Corretto's AL2023 base is minimal; the Gradle wrapper needs xargs
-RUN dnf install -y findutils && dnf clean all
 
 # Copy the build definition first so the dependency download layer is
 # cached until build.gradle.kts / the wrapper actually change
@@ -18,8 +16,8 @@ RUN ./gradlew bootJar --no-daemon
 # code changes every build) so image pulls only transfer what changed
 RUN java -Djarmode=tools -jar build/libs/*-SNAPSHOT.jar extract --layers --launcher --destination extracted
 
-# ---- Runtime stage: minimal JDK on Alpine, non-root ----
-FROM amazoncorretto:25-alpine
+# ---- Runtime stage: JRE-only Alpine image, non-root ----
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S app && adduser -S app -G app
