@@ -1,0 +1,13 @@
+# Build inside the image is hermetic; keep host artifacts and metadata out
+build/
+.gradle/
+.git/
+.github/
+.idea/
+*.iml
+docs/
+docker-compose.yml
+Dockerfile
+HELP.md
+README.md
+CLAUDE.md
