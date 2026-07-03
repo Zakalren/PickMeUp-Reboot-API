@@ -1,0 +1,45 @@
+# PickMeUp production stack. The app is bound to loopback only; nginx
+# terminates TLS for pickmeup.zakalren.dev and proxies to 127.0.0.1:8090.
+#
+# The deploy job syncs this file to /opt/pickmeup/docker-compose.yml on
+# the OCI instance. Secrets live only on the server: /opt/pickmeup/.env
+# must define DB_USERNAME and DB_PASSWORD.
+services:
+  app:
+    image: ghcr.io/zakalren/pickmeup-reboot-api:latest
+    container_name: pickmeup-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pickmeup?serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    container_name: pickmeup-db
+    restart: unless-stopped
+    # No published ports: reachable only from the app on the compose network
+    environment:
+      MYSQL_DATABASE: pickmeup
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

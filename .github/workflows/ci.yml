@@ -173,6 +173,8 @@ jobs:
     needs: merge-image
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - name: Deploy over SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -182,8 +184,12 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          # The compose file is versioned in the repo; sync it so config
+          # changes go through review and this pipeline like code does
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            deploy/docker-compose.prod.yml "$USER@$HOST:/opt/pickmeup/docker-compose.yml"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
-            'cd /opt/pickmeup && docker compose pull app && docker compose up -d app && docker image prune -f'
+            'cd /opt/pickmeup && docker compose pull app && docker compose up -d && docker image prune -f'
 
       - name: Smoke test through nginx
         run: |
