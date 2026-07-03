@@ -1,0 +1,36 @@
+# Weekly dependency-update PRs. Every PR triggers the CI workflow,
+# so an update is only merged once the full pipeline is green.
+version: 2
+updates:
+  # Workflow actions (.github/workflows/*.yml) — node runtime deprecations etc.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+
+  # Gradle dependencies (build.gradle.kts)
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    # Batch low-risk bumps into one PR; majors stay separate for review
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Dockerfile base images (eclipse-temurin tags)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
