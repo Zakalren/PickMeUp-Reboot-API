@@ -35,6 +35,12 @@ public class CartItem {
     @Column(nullable = false)
     private Integer quantity;
 
+    // Optimistic lock: concurrent quantity changes fail at commit (mapped to
+    // 409 by CartExceptionHandler) instead of silently losing one update
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -5,6 +5,7 @@ import dev.zakalren.pickmeup.common.exception.ErrorResponse;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.exception.UserNotFoundException;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +36,21 @@ public class CartExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("USER_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(CartItemConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(CartItemConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("CART_ITEM_CONFLICT", exception.getMessage()));
+    }
+
+    // @Version conflicts surface at transaction commit, i.e. when the service
+    // proxy returns — they pass through the controller and land here.
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("CART_ITEM_CONFLICT",
+                        "The cart item was modified concurrently. Retry the request."));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

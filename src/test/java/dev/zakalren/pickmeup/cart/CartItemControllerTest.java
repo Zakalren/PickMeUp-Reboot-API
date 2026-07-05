@@ -3,6 +3,7 @@ package dev.zakalren.pickmeup.cart;
 import dev.zakalren.pickmeup.cart.dto.AddCartItemRequest;
 import dev.zakalren.pickmeup.cart.dto.CartItemResponse;
 import dev.zakalren.pickmeup.cart.dto.UpdateCartItemRequest;
+import dev.zakalren.pickmeup.cart.exception.CartItemConflictException;
 import dev.zakalren.pickmeup.cart.exception.CartItemNotFoundException;
 import dev.zakalren.pickmeup.config.SecurityConfig;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -137,6 +139,42 @@ public class CartItemControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Add cart item concurrent race test")
+    void add_conflict() throws Exception {
+        // given: 동시 add 레이스가 서비스에서 도메인 예외로 변환된 상황
+        AddCartItemRequest request = new AddCartItemRequest(10L, 2);
+
+        given(cartItemService.add(eq(SERVICE_NUMBER), any(AddCartItemRequest.class)))
+                .willThrow(new CartItemConflictException(10L));
+
+        // when & then
+        mockMvc.perform(post("/api/cart-items")
+                        .with(user(SERVICE_NUMBER).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CART_ITEM_CONFLICT"));
+    }
+
+    @Test
+    @DisplayName("Update cart item optimistic lock conflict test")
+    void update_optimisticLockConflict() throws Exception {
+        // given: @Version 충돌 — 커밋 시점에 터지는 스프링 예외가 409로 매핑돼야 함
+        UpdateCartItemRequest request = new UpdateCartItemRequest(5);
+
+        given(cartItemService.update(eq(SERVICE_NUMBER), eq(1L), any(UpdateCartItemRequest.class)))
+                .willThrow(new ObjectOptimisticLockingFailureException(CartItem.class, 1L));
+
+        // when & then
+        mockMvc.perform(put("/api/cart-items/1")
+                        .with(user(SERVICE_NUMBER).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CART_ITEM_CONFLICT"));
     }
 
     @Test

@@ -3,6 +3,7 @@ package dev.zakalren.pickmeup.cart;
 import dev.zakalren.pickmeup.cart.dto.AddCartItemRequest;
 import dev.zakalren.pickmeup.cart.dto.CartItemResponse;
 import dev.zakalren.pickmeup.cart.dto.UpdateCartItemRequest;
+import dev.zakalren.pickmeup.cart.exception.CartItemConflictException;
 import dev.zakalren.pickmeup.cart.exception.CartItemNotFoundException;
 import dev.zakalren.pickmeup.product.Product;
 import dev.zakalren.pickmeup.product.ProductRepository;
@@ -11,6 +12,7 @@ import dev.zakalren.pickmeup.user.User;
 import dev.zakalren.pickmeup.user.UserRepository;
 import dev.zakalren.pickmeup.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,8 +50,18 @@ public class CartItemService {
                 })
                 .orElseGet(() -> {
                     CartItem cartItem = CartItem.create(user, product, request.quantity());
-                    CartItem saved = cartItemRepository.save(cartItem);
-                    return CartItemResponse.from(saved);
+                    try {
+                        // IDENTITY ids flush the insert here, so a concurrent
+                        // add racing past the find above hits the unique
+                        // (user, product) index at this point
+                        CartItem saved = cartItemRepository.save(cartItem);
+                        return CartItemResponse.from(saved);
+                    } catch (DataIntegrityViolationException e) {
+                        // The transaction is already rollback-only; retrying the
+                        // increase here cannot commit, so surface a 409 and let
+                        // the client retry (which then takes the increase path)
+                        throw new CartItemConflictException(product.getId());
+                    }
                 });
     }
 
