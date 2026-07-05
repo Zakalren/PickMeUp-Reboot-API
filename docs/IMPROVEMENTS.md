@@ -16,10 +16,22 @@
   비노출)까지 전부 `ErrorResponse` 포맷으로 통일. `ErrorResponse`는 `@JsonInclude(NON_NULL)`
   + `of()` 정적 팩토리. 주의: advice 간에는 예외 구체성이 아니라 **순서**로 핸들러가
   결정되므로, 전역 catch-all이 도메인 예외를 삼키지 않도록 도메인 advice 4개에 `@Order(1)` 부여.
-- 📋 남은 항목: #7(로그인 rate limiting), #13(장바구니 동시성),
-  #15(페이지네이션), #17(SecurityContextRepository 공유),
-  #19(미사용 리포지토리 메서드), #21(재고 개념), Swagger prod 차단(#6 잔여),
-  ProductService 단위 테스트, 로그아웃 테스트, Testcontainers 기반 prod 스키마 검증
+- ✅ #13, #15, #17, #19, Swagger prod 차단(#6 잔여), ProductService 단위 테스트,
+  로그아웃 테스트 완료 (2026-07-05):
+  - #13: `CartItem`에 `@Version`(+Flyway V3) — increase/update 경합은 커밋 시점
+    `OptimisticLockingFailureException` → 409. add의 find-then-insert 레이스는
+    unique 인덱스 위반(`DataIntegrityViolationException`)을 `CartItemConflictException`으로
+    변환 → 409. 트랜잭션이 이미 rollback-only라 서버측 재시도는 불가 — 클라이언트가
+    재시도하면 증가 경로를 탄다.
+  - #15: `GET /api/products`가 `Pageable`(기본 size 20, id 정렬) + `PagedModel` 반환.
+    `PageImpl` 직접 직렬화는 Boot가 비권장(포맷 불안정)이라 `PagedModel`로 감쌈.
+  - #17: `SecurityContextRepository`를 빈으로 정의해 필터 체인(`.securityContext()`)과
+    `AuthController`가 같은 인스턴스 공유.
+  - 로그아웃 통합 테스트가 세션 무효화(재사용 시 401)까지 검증.
+    `UserSignupIntegrationTest`의 `deleteAll()`/`@Transactional` 중복도 정리(롤백만 사용).
+- 📋 남은 항목: #7(로그인 rate limiting), #21(재고 개념),
+  Testcontainers 기반 prod 스키마 검증(CI prod-boot-check가 이미 커버하는 영역과
+  중복이라 도입 여부 자체를 재검토)
 
 ---
 

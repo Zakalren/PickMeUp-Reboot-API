@@ -151,10 +151,10 @@ This project follows the **test pyramid**:
 
 | Type | Examples |
 |---|---|
-| **Unit (Mockito)** | `UserServiceTest`, `CartItemServiceTest` — verifies business logic in isolation |
+| **Unit (Mockito)** | `UserServiceTest`, `ProductServiceTest`, `CartItemServiceTest` — verifies business logic in isolation |
 | **Slice — Repository** | `UserRepositoryTest`, `CartItemRepositoryTest` (`@DataJpaTest`) — JPA query generation, N+1 detection via Hibernate Statistics |
 | **Slice — Controller** | `UserControllerTest`, `AuthControllerTest`, `CartItemControllerTest`, `ProductControllerTest` (`@WebMvcTest`) — HTTP layer, Spring Security, role-based access rules |
-| **Integration** | `UserSignupIntegrationTest` (`@SpringBootTest`) — signup → login → authenticated request flow, session-id rotation on login |
+| **Integration** | `UserSignupIntegrationTest` (`@SpringBootTest`) — signup → login → authenticated request flow, session-id rotation on login, logout session invalidation |
 | **CI-only** | `prod-boot-check` job — boots the prod profile against real MySQL 8.4 (Flyway + `validate` + HTTP smoke) |
 
 ## 🚀 Running Locally
@@ -238,6 +238,9 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 - Unified error response format: every error — domain, validation, framework
   (unreadable JSON, type mismatch), unhandled 500 — returns the same
   `ErrorResponse` shape via `ResponseEntityExceptionHandler`
+- Cart concurrency handling: optimistic locking (`@Version`) for quantity
+  updates, unique-index race on concurrent add surfaced as 409 Conflict
+- Paginated product listing (`Pageable` + stable `PagedModel` JSON shape)
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
@@ -247,8 +250,8 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ### 📅 Planned
 
-- Cart concurrency handling (unique-violation on concurrent add, optimistic locking)
-- Pagination for product listing
+- Login rate limiting / brute-force protection
+- Stock (inventory) concept on products
 - README extension with API endpoint reference
 
 ## 📚 Original Project
