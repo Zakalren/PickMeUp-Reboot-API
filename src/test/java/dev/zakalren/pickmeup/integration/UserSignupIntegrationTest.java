@@ -1,9 +1,7 @@
 package dev.zakalren.pickmeup.integration;
 
 import dev.zakalren.pickmeup.auth.dto.LoginRequest;
-import dev.zakalren.pickmeup.user.UserRepository;
 import dev.zakalren.pickmeup.user.dto.UserSignupRequest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,14 +35,7 @@ public class UserSignupIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @BeforeEach
-    void setUp() {
-        userRepository.deleteAll();
-    }
+    // 격리는 클래스 레벨 @Transactional 롤백이 담당 — deleteAll() 중복 호출 불필요
 
     @Test
     @DisplayName("Signup -> Login -> /me flow test")
@@ -130,6 +121,48 @@ public class UserSignupIntegrationTest {
 
         // 3. 로그인 성공 후에는 세션 id가 회전되어야 함
         assertThat(preLoginSession.getId()).isNotEqualTo(preLoginId);
+    }
+
+    @Test
+    @DisplayName("Logout invalidates session test")
+    void logout_invalidatesSession() throws Exception {
+        // 1. Signup + Login
+        UserSignupRequest signupRequest = new UserSignupRequest(
+                "21-12345678",
+                "password1234",
+                "KIM",
+                "ROKAF",
+                "Private",
+                LocalDate.of(2002, 11, 8),
+                "010-1234-5678"
+        );
+        mockMvc.perform(post("/api/users/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(signupRequest)))
+                .andExpect(status().isCreated());
+
+        LoginRequest loginRequest = new LoginRequest(
+                "21-12345678",
+                "password1234"
+        );
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession();
+
+        // 2. Logout — 필터 체인(logoutUrl) 처리, 204 응답
+        mockMvc.perform(post("/api/auth/logout")
+                    .session(session))
+                .andExpect(status().isNoContent());
+
+        // 3. 세션이 실제로 무효화되어 재사용 불가해야 함
+        assertThat(session.isInvalid()).isTrue();
+        mockMvc.perform(get("/api/users/me")
+                    .session(session))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
