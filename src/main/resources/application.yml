@@ -63,3 +63,11 @@ spring:
     show-sql: false
   flyway:
     enabled: true
+
+# API documentation stays a dev-profile tool; prod exposes neither the
+# spec nor the UI (the SecurityConfig permitAll then matches nothing)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
