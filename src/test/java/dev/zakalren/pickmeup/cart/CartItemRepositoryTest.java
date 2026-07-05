@@ -138,40 +138,6 @@ public class CartItemRepositoryTest {
     }
 
     @Nested
-    @DisplayName("existsByUserIdAndProductId")
-    class ExistsByUserIdAndProductId {
-
-        @Test
-        @DisplayName("존재하면 true, 없으면 false")
-        void existsByUserIdAndProductId() {
-            // given
-            cartItemRepository.save(CartItem.create(user, chips, 1));
-
-            // when & then
-            assertThat(cartItemRepository.existsByUserIdAndProductId(user.getId(), chips.getId())).isTrue();
-            assertThat(cartItemRepository.existsByUserIdAndProductId(user.getId(), pizza.getId())).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("deleteByUserIdAndProductId")
-    class DeleteByUserIdAndProductId {
-
-        @Test
-        @DisplayName("삭제 후 조회 시 empty")
-        void deleteByUserIdAndProductId_success() {
-            // given
-            cartItemRepository.save(CartItem.create(user, chips, 1));
-
-            // when
-            cartItemRepository.deleteByUserIdAndProductId(user.getId(), chips.getId());
-
-            // then
-            assertThat(cartItemRepository.findByUserIdAndProductId(user.getId(), chips.getId())).isEmpty();
-        }
-    }
-
-    @Nested
     @DisplayName("Unique constraint (user + product)")
     class UniqueConstraint {
 
