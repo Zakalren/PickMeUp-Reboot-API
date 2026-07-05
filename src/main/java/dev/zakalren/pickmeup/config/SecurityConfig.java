@@ -16,15 +16,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            SecurityContextRepository securityContextRepository
+    ) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // Share one repository instance between the filter chain and
+                // AuthController's manual login, so both always read/write the
+                // same session storage even if the implementation changes
+                .securityContext(context -> context
+                        .securityContextRepository(securityContextRepository))
 
                 // Applies the dev-profile CorsConfigurationSource when present;
                 // prod is same-origin behind a reverse proxy and defines none
@@ -62,6 +73,11 @@ public class SecurityConfig {
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin));
 
         return http.build();
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
     }
 
     @Bean
