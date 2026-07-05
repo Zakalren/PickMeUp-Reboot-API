@@ -7,9 +7,13 @@ import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,8 +22,10 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -50,13 +56,34 @@ public class ProductControllerTest {
     @DisplayName("Find all products without login test")
     void findAll_public() throws Exception {
         // given
-        given(productService.findAll()).willReturn(List.of(chips));
+        given(productService.findAll(any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(chips)));
 
-        // when & then: 상품 조회는 비로그인도 허용
+        // when & then: 상품 조회는 비로그인도 허용, PagedModel 포맷(content + page)으로 응답
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("Chips"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Chips"))
+                .andExpect(jsonPath("$.page.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("Pageable request param binding test")
+    void findAll_bindsPageable() throws Exception {
+        // given
+        given(productService.findAll(any(Pageable.class))).willReturn(Page.empty());
+
+        // when: 쿼리 파라미터로 페이지 지정
+        mockMvc.perform(get("/api/products")
+                        .param("page", "1")
+                        .param("size", "5"))
+                .andExpect(status().isOk());
+
+        // then: 파라미터가 Pageable로 바인딩되어 서비스까지 전달됨
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(productService).findAll(captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(5);
     }
 
     @Test

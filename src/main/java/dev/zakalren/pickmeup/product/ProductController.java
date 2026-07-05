@@ -4,11 +4,13 @@ import dev.zakalren.pickmeup.product.dto.ProductRequest;
 import dev.zakalren.pickmeup.product.dto.ProductResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
@@ -18,8 +20,14 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> findAll() {
-        return ResponseEntity.ok(productService.findAll());
+    public ResponseEntity<PagedModel<ProductResponse>> findAll(
+            // Unbounded findAll() grows with the catalog; default sort keeps
+            // the page order deterministic across identical requests
+            @PageableDefault(size = 20, sort = "id") Pageable pageable
+    ) {
+        // PagedModel keeps the JSON shape stable; serializing PageImpl
+        // directly is unsupported (its structure may change between releases)
+        return ResponseEntity.ok(new PagedModel<>(productService.findAll(pageable)));
     }
 
     @GetMapping("/{id}")

@@ -4,10 +4,10 @@ import dev.zakalren.pickmeup.product.dto.ProductRequest;
 import dev.zakalren.pickmeup.product.dto.ProductResponse;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -16,10 +16,9 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public List<ProductResponse> findAll() {
-        return productRepository.findAll().stream()
-                .map(ProductResponse::from)
-                .toList();
+    public Page<ProductResponse> findAll(Pageable pageable) {
+        return productRepository.findAll(pageable)
+                .map(ProductResponse::from);
     }
 
     public ProductResponse findById(Long id) {
