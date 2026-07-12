@@ -50,8 +50,8 @@ public class CartItemRepositoryTest {
                 "21-12345678", "$encodedpassword$", "KIM", "ROKAF", "Private",
                 LocalDate.of(2002, 11, 8), "010-1234-5678"
         ));
-        chips = productRepository.save(Product.create("Chips", "chips.jpg", 1000, "Snack"));
-        pizza = productRepository.save(Product.create("Pizza", "pizza.jpg", 5000, "Food"));
+        chips = productRepository.save(Product.create("Chips", "chips.jpg", 1000, "Snack", 100));
+        pizza = productRepository.save(Product.create("Pizza", "pizza.jpg", 5000, "Food", 100));
     }
 
     @Nested

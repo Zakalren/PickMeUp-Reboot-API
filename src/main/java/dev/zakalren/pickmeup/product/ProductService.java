@@ -33,7 +33,8 @@ public class ProductService {
                 request.name(),
                 request.imageUrl(),
                 request.price(),
-                request.category()
+                request.category(),
+                request.stock()
         );
         Product saved = productRepository.save(product);
         return ProductResponse.from(saved);
@@ -48,7 +49,8 @@ public class ProductService {
                 request.name(),
                 request.imageUrl(),
                 request.price(),
-                request.category()
+                request.category(),
+                request.stock()
         );
         return ProductResponse.from(product);
     }

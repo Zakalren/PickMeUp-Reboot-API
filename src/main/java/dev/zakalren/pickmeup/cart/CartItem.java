@@ -49,8 +49,13 @@ public class CartItem {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // Quantity invariants live here (architectural decision #4): a quantity
+    // increase can never push a cart line above the product's current stock.
+    // Stock is not reserved — lowering a product's stock leaves existing
+    // lines as-is until their next mutation re-validates them.
     public static CartItem create(User user, Product product, Integer quantity) {
         validateQuantity(quantity);
+        product.validateStockAvailable(quantity);
         CartItem cartItem = new CartItem();
         cartItem.user = user;
         cartItem.product = product;
@@ -60,12 +65,15 @@ public class CartItem {
 
     public void updateQuantity(Integer quantity) {
         validateQuantity(quantity);
+        product.validateStockAvailable(quantity);
         this.quantity = quantity;
     }
 
     public void increaseQuantity(Integer amount) {
-        validateQuantity(this.quantity + amount);
-        this.quantity += amount;
+        int newQuantity = this.quantity + amount;
+        validateQuantity(newQuantity);
+        product.validateStockAvailable(newQuantity);
+        this.quantity = newQuantity;
     }
 
     public void decreaseQuantity(Integer amount) {

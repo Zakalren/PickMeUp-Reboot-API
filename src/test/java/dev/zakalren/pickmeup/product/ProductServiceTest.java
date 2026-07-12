@@ -37,7 +37,7 @@ public class ProductServiceTest {
     private ProductService productService;
 
     private Product chips() {
-        Product product = Product.create("Chips", "chips.jpg", 1000, "Snack");
+        Product product = Product.create("Chips", "chips.jpg", 1000, "Snack", 50);
         ReflectionTestUtils.setField(product, "id", 1L);
         return product;
     }
@@ -102,7 +102,7 @@ public class ProductServiceTest {
         @DisplayName("create successful test")
         void create_success() {
             // given
-            ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack");
+            ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", 50);
             given(productRepository.save(any(Product.class))).willReturn(chips());
 
             // when
@@ -124,7 +124,7 @@ public class ProductServiceTest {
             // given
             given(productRepository.findById(1L)).willReturn(Optional.of(chips()));
 
-            ProductRequest request = new ProductRequest("Premium Chips", "premium.jpg", 1500, "Snack");
+            ProductRequest request = new ProductRequest("Premium Chips", "premium.jpg", 1500, "Snack", 30);
 
             // when
             ProductResponse response = productService.update(1L, request);
@@ -132,6 +132,7 @@ public class ProductServiceTest {
             // then: 조회한 영속 엔티티를 변경 — dirty checking에 맡기고 save는 호출하지 않음
             assertThat(response.name()).isEqualTo("Premium Chips");
             assertThat(response.price()).isEqualTo(1500);
+            assertThat(response.stock()).isEqualTo(30);
             verify(productRepository, never()).save(any(Product.class));
         }
 
@@ -141,7 +142,7 @@ public class ProductServiceTest {
             // given
             given(productRepository.findById(999L)).willReturn(Optional.empty());
 
-            ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack");
+            ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", 50);
 
             // when & then
             assertThatThrownBy(() -> productService.update(999L, request))

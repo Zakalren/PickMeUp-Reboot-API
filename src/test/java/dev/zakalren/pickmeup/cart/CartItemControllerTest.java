@@ -6,6 +6,7 @@ import dev.zakalren.pickmeup.cart.dto.UpdateCartItemRequest;
 import dev.zakalren.pickmeup.cart.exception.CartItemConflictException;
 import dev.zakalren.pickmeup.cart.exception.CartItemNotFoundException;
 import dev.zakalren.pickmeup.config.SecurityConfig;
+import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
 import org.junit.jupiter.api.DisplayName;
@@ -157,6 +158,24 @@ public class CartItemControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CART_ITEM_CONFLICT"));
+    }
+
+    @Test
+    @DisplayName("Add cart item insufficient stock test")
+    void add_insufficientStock() throws Exception {
+        // given: 재고를 넘는 수량
+        AddCartItemRequest request = new AddCartItemRequest(10L, 6);
+
+        given(cartItemService.add(eq(SERVICE_NUMBER), any(AddCartItemRequest.class)))
+                .willThrow(new InsufficientStockException(10L, 6, 5));
+
+        // when & then
+        mockMvc.perform(post("/api/cart-items")
+                        .with(user(SERVICE_NUMBER).roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
     }
 
     @Test

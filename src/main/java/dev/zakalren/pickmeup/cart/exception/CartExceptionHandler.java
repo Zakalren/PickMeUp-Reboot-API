@@ -2,6 +2,7 @@ package dev.zakalren.pickmeup.cart.exception;
 
 import dev.zakalren.pickmeup.cart.CartItemController;
 import dev.zakalren.pickmeup.common.exception.ErrorResponse;
+import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.exception.UserNotFoundException;
 import org.springframework.core.annotation.Order;
@@ -36,6 +37,14 @@ public class CartExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("USER_NOT_FOUND", exception.getMessage()));
+    }
+
+    // 409 (not 400): the request is well-formed, it conflicts with the
+    // current stock state and may succeed after the inventory changes
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientStock(InsufficientStockException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("INSUFFICIENT_STOCK", exception.getMessage()));
     }
 
     @ExceptionHandler(CartItemConflictException.class)

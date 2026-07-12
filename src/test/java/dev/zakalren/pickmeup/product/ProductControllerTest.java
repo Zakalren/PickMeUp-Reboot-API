@@ -48,7 +48,7 @@ public class ProductControllerTest {
     private CustomUserDetailsService customUserDetailsService;
 
     private final ProductResponse chips = new ProductResponse(
-            1L, "Chips", "chips.jpg", 1000, "Snack",
+            1L, "Chips", "chips.jpg", 1000, "Snack", 50,
             LocalDateTime.now(), LocalDateTime.now()
     );
 
@@ -64,6 +64,7 @@ public class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].name").value("Chips"))
+                .andExpect(jsonPath("$.content[0].stock").value(50))
                 .andExpect(jsonPath("$.page.totalElements").value(1));
     }
 
@@ -112,7 +113,7 @@ public class ProductControllerTest {
     @DisplayName("Create product as admin test")
     void create_asAdmin() throws Exception {
         // given
-        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack");
+        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", 50);
 
         given(productService.create(any(ProductRequest.class))).willReturn(chips);
 
@@ -127,10 +128,26 @@ public class ProductControllerTest {
     }
 
     @Test
+    @DisplayName("Create product with negative stock test")
+    void create_negativeStock_badRequest() throws Exception {
+        // given: 재고가 음수
+        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", -1);
+
+        // when & then
+        mockMvc.perform(post("/api/products")
+                        .with(user("11-00000001").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.stock").exists());
+    }
+
+    @Test
     @DisplayName("Create product as plain user test")
     void create_asUser_forbidden() throws Exception {
         // given
-        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack");
+        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", 50);
 
         // when & then: 일반 사용자는 상품 관리 불가
         mockMvc.perform(post("/api/products")
@@ -144,7 +161,7 @@ public class ProductControllerTest {
     @DisplayName("Create product without login test")
     void create_unauthenticated() throws Exception {
         // given
-        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack");
+        ProductRequest request = new ProductRequest("Chips", "chips.jpg", 1000, "Snack", 50);
 
         // when & then
         mockMvc.perform(post("/api/products")

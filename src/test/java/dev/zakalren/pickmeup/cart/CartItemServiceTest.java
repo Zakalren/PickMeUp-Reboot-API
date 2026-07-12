@@ -2,8 +2,10 @@ package dev.zakalren.pickmeup.cart;
 
 import dev.zakalren.pickmeup.cart.dto.AddCartItemRequest;
 import dev.zakalren.pickmeup.cart.dto.CartItemResponse;
+import dev.zakalren.pickmeup.cart.dto.UpdateCartItemRequest;
 import dev.zakalren.pickmeup.cart.exception.CartItemConflictException;
 import dev.zakalren.pickmeup.product.Product;
+import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.product.ProductRepository;
 import dev.zakalren.pickmeup.user.User;
 import dev.zakalren.pickmeup.user.UserRepository;
@@ -70,13 +72,15 @@ public class CartItemServiceTest {
                     "Chips",
                     "chips.jpg",
                     1000,
-                    "Snack"
+                    "Snack",
+                    10
             );
             Product pizza = Product.create(
                     "Pizza",
                     "pizza.jpg",
                     5000,
-                    "Food"
+                    "Food",
+                    10
             );
 
             CartItem cartItem1 = CartItem.create(user, chips, 1);
@@ -125,7 +129,8 @@ public class CartItemServiceTest {
                     "Chips",
                     "chips.jpg",
                     1000,
-                    "Snack"
+                    "Snack",
+                    10
             );
             ReflectionTestUtils.setField(product, "id", 10L);
             given(productRepository.findById(10L))
@@ -176,7 +181,8 @@ public class CartItemServiceTest {
                     "Chips",
                     "chips.jpg",
                     1000,
-                    "Snack"
+                    "Snack",
+                    10
             );
             ReflectionTestUtils.setField(product, "id", 10L);
             given(productRepository.findById(10L))
@@ -220,7 +226,8 @@ public class CartItemServiceTest {
                     "Chips",
                     "chips.jpg",
                     1000,
-                    "Snack"
+                    "Snack",
+                    10
             );
             ReflectionTestUtils.setField(product, "id", 10L);
             given(productRepository.findById(10L))
@@ -236,6 +243,103 @@ public class CartItemServiceTest {
             // when & then: 인프라 예외가 도메인 예외(409 매핑)로 변환되어야 함
             assertThatThrownBy(() -> cartItemService.add("21-12345678", request))
                     .isInstanceOf(CartItemConflictException.class);
+        }
+
+        @Test
+        @DisplayName("add new cart item over stock test")
+        void add_newCartItem_insufficientStock() {
+            // given: 재고 1개인 상품
+            User user = User.create(
+                    "21-12345678",
+                    "$hashedpassword$",
+                    "KIM",
+                    "ROKAF",
+                    "Private",
+                    LocalDate.of(2002, 11, 8),
+                    "010-1234-5678"
+            );
+            ReflectionTestUtils.setField(user, "id", 1L);
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Product product = Product.create("Chips", "chips.jpg", 1000, "Snack", 1);
+            ReflectionTestUtils.setField(product, "id", 10L);
+            given(productRepository.findById(10L))
+                    .willReturn(Optional.of(product));
+
+            given(cartItemRepository.findByUserIdAndProductId(1L, 10L))
+                    .willReturn(Optional.empty());
+
+            AddCartItemRequest request = new AddCartItemRequest(10L, 2);
+
+            // when & then: 재고를 넘는 수량은 담을 수 없음
+            assertThatThrownBy(() -> cartItemService.add("21-12345678", request))
+                    .isInstanceOf(InsufficientStockException.class);
+            verify(cartItemRepository, never()).save(any(CartItem.class));
+        }
+
+        @Test
+        @DisplayName("add existing cart item over stock test")
+        void add_existingCartItem_insufficientStock() {
+            // given: 재고 5개, 이미 4개 담긴 상태에서 2개 추가 → 총 6개
+            User user = User.create(
+                    "21-12345678",
+                    "$hashedpassword$",
+                    "KIM",
+                    "ROKAF",
+                    "Private",
+                    LocalDate.of(2002, 11, 8),
+                    "010-1234-5678"
+            );
+            ReflectionTestUtils.setField(user, "id", 1L);
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Product product = Product.create("Chips", "chips.jpg", 1000, "Snack", 5);
+            ReflectionTestUtils.setField(product, "id", 10L);
+            given(productRepository.findById(10L))
+                    .willReturn(Optional.of(product));
+
+            CartItem existing = CartItem.create(user, product, 4);
+            given(cartItemRepository.findByUserIdAndProductId(1L, 10L))
+                    .willReturn(Optional.of(existing));
+
+            AddCartItemRequest request = new AddCartItemRequest(10L, 2);
+
+            // when & then: 누적 수량 기준으로 재고를 검증해야 함
+            assertThatThrownBy(() -> cartItemService.add("21-12345678", request))
+                    .isInstanceOf(InsufficientStockException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Update")
+    class Update {
+
+        @Test
+        @DisplayName("update quantity over stock test")
+        void update_insufficientStock() {
+            // given: 재고 3개인 상품을 5개로 변경 시도
+            User user = User.create(
+                    "21-12345678",
+                    "$hashedpassword$",
+                    "KIM",
+                    "ROKAF",
+                    "Private",
+                    LocalDate.of(2002, 11, 8),
+                    "010-1234-5678"
+            );
+
+            Product product = Product.create("Chips", "chips.jpg", 1000, "Snack", 3);
+            CartItem cartItem = CartItem.create(user, product, 2);
+            given(cartItemRepository.findById(5L))
+                    .willReturn(Optional.of(cartItem));
+
+            UpdateCartItemRequest request = new UpdateCartItemRequest(5);
+
+            // when & then
+            assertThatThrownBy(() -> cartItemService.update("21-12345678", 5L, request))
+                    .isInstanceOf(InsufficientStockException.class);
         }
     }
 }
