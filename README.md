@@ -241,6 +241,11 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 - Cart concurrency handling: optimistic locking (`@Version`) for quantity
   updates, unique-index race on concurrent add surfaced as 409 Conflict
 - Paginated product listing (`Pageable` + stable `PagedModel` JSON shape)
+- Login brute-force protection: per-IP token bucket (Bucket4j) counting
+  only failed attempts → 429 with `Retry-After`; real client IP restored
+  behind the reverse proxy (`forward-headers-strategy: native`)
+- Product stock: cart quantities validated against available inventory
+  (encapsulated in the entity), exceeding stock returns 409 Conflict
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
@@ -250,8 +255,7 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ### 📅 Planned
 
-- Login rate limiting / brute-force protection
-- Stock (inventory) concept on products
+- Order (checkout) domain — designed together with atomic stock decrement
 - README extension with API endpoint reference
 
 ## 📚 Original Project

@@ -29,9 +29,32 @@
     `AuthController`가 같은 인스턴스 공유.
   - 로그아웃 통합 테스트가 세션 무효화(재사용 시 401)까지 검증.
     `UserSignupIntegrationTest`의 `deleteAll()`/`@Transactional` 중복도 정리(롤백만 사용).
-- 📋 남은 항목: #7(로그인 rate limiting), #21(재고 개념),
-  Testcontainers 기반 prod 스키마 검증(CI prod-boot-check가 이미 커버하는 영역과
-  중복이라 도입 여부 자체를 재검토)
+- ✅ #7, #21 완료 (2026-07-12):
+  - #7: 로그인 실패를 클라이언트 IP당 토큰 버킷(Bucket4j, 5회/분)으로 제한 → 초과 시
+    429 LOGIN_RATE_LIMITED + Retry-After. **실패(401)만 토큰을 소비** — 요청 전체를
+    세면 정상 사용자가 잠기고, 계정 단위 잠금은 피해자 계정에 대한 DoS가 가능함.
+    필터는 빈으로 만들지 않고 체인 안에서 생성(Filter 빈은 서블릿 컨테이너에도 자동
+    등록되어 요청당 두 번 실행됨). prod는 nginx 뒤라 `forward-headers-strategy: native`로
+    실제 클라이언트 IP를 복원. in-memory 버킷은 단일 인스턴스 전제 — 수평 확장 시
+    bucket4j-redis 같은 공유 백엔드로 교체 필요.
+    리뷰 반영 2건: (1) 경로 매칭을 원본 `getRequestURI()` 문자열 비교에서
+    `PathPatternRequestMatcher`(디코딩된 경로)로 교체 — `%6C` 같은 인코딩 변형이
+    필터만 우회하고 컨트롤러엔 정상 라우팅되는 우회로가 있었음(회귀 테스트 추가).
+    (2) 확인 후 소비(estimate→consume)를 선소비 후 비실패 환불(tryConsume→addTokens)로
+    교체 — 전자는 동시 버스트가 토큰 소비 전에 전부 통과해 한도가 버스트에는 무력했음.
+  - #21: `Product.stock`(+Flyway V4, 기존 행은 0으로 backfill) + Request/Response 반영.
+    재고 검증은 CartItem 엔티티에 캡슐화(결정 #4) — 담기/증가/수량변경 모두 누적
+    수량 기준으로 검사, 초과 시 `InsufficientStockException` → 409 INSUFFICIENT_STOCK.
+    재고 **차감**은 주문 도메인 없이는 의미가 없어 구현하지 않음(아래 백로그).
+    재고는 예약되지 않음 — 관리자가 재고를 낮춰도 기존 장바구니 라인은 다음 수량
+    변경 시점에야 재검증됨. stock은 응답 DTO로 공개(품절 표시가 필요한 storefront
+    특성상 의도된 노출). 배포 주의: 기존 상품은 0으로 backfill되므로 관리자가
+    재고를 설정하기 전까지 담기가 409로 거부됨.
+- ❎ Testcontainers 기반 prod 스키마 검증: **도입하지 않기로 결정** (2026-07-12).
+  CI prod-boot-check가 실제 MySQL 8.4 + Flyway + Hibernate validate + HTTP 스모크로
+  동일 영역을 이미 커버함. 로컬에서 prod 스키마 재현이 필요해지는 시점에 재검토.
+- 📋 남은 항목: 주문(checkout) 도메인 — 도입 시 재고 차감을 원자적 UPDATE
+  (`stock = stock - ? WHERE stock >= ?`)로 #13의 동시성 패턴과 묶어서 설계
 
 ---
 
