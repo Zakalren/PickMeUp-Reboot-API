@@ -16,8 +16,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import dev.zakalren.pickmeup.auth.LoginRateLimitFilter;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity
@@ -26,10 +29,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            SecurityContextRepository securityContextRepository
+            SecurityContextRepository securityContextRepository,
+            ObjectMapper objectMapper
     ) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // Deliberately not a bean: Boot auto-registers Filter beans
+                // with the servlet container, which would run it twice
+                .addFilterBefore(new LoginRateLimitFilter(objectMapper),
+                        UsernamePasswordAuthenticationFilter.class)
 
                 // Share one repository instance between the filter chain and
                 // AuthController's manual login, so both always read/write the

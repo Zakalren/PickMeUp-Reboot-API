@@ -64,6 +64,15 @@ spring:
   flyway:
     enabled: true
 
+server:
+  # Prod sits behind nginx on the same host; restore the real client address
+  # from X-Forwarded-For (Tomcat's RemoteIpValve trusts local proxies by
+  # default) so per-IP login rate limiting keys on the client, not the proxy.
+  # This trusts XFF from private source addresses — the deployment must keep
+  # the app port unreachable except through nginx (container port published
+  # on 127.0.0.1 only), or clients could spoof XFF to evade the rate limit.
+  forward-headers-strategy: native
+
 # API documentation stays a dev-profile tool; prod exposes neither the
 # spec nor the UI (the SecurityConfig permitAll then matches nothing)
 springdoc:
