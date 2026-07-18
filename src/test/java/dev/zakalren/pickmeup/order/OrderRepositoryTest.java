@@ -127,7 +127,7 @@ public class OrderRepositoryTest {
             // then
             assertThat(orders).hasSize(1);
             assertThat(orders.get(0).getItems()).hasSize(2);
-            assertThat(orders.get(0).getTotalPrice()).isEqualTo(11000);
+            assertThat(orders.get(0).getTotalPrice()).isEqualTo(11000L);
             assertThat(stats.getPrepareStatementCount()).isEqualTo(1);
         }
     }

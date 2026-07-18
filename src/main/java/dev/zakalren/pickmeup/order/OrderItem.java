@@ -40,11 +40,12 @@ public class OrderItem {
 
     // Only Order.place builds items, so creation stays package-private
     static OrderItem from(Order order, CartItem cartItem) {
+        Product product = cartItem.getProduct();
         OrderItem item = new OrderItem();
         item.order = order;
-        item.product = cartItem.getProduct();
-        item.productName = cartItem.getProduct().getName();
-        item.price = cartItem.getProduct().getPrice();
+        item.product = product;
+        item.productName = product.getName();
+        item.price = product.getPrice();
         item.quantity = cartItem.getQuantity();
         return item;
     }
