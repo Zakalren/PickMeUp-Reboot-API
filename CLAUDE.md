@@ -36,6 +36,9 @@ Goals:
 
 ## Coding Conventions
 
+- All changes land via branch → PR → CI → review → merge, like a team
+  project (no direct push to main). Full process: /pr-workflow skill
+  (`.claude/skills/pr-workflow/SKILL.md`).
 - Commit messages: plain verb-first (e.g., "Implement CartItemService#add
   unit test", "Add session-based authentication"). No conventional commits
   prefix like "feat:" or "fix:".
