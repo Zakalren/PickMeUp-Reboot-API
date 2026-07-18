@@ -45,16 +45,18 @@ git switch -c feature/cart-stock-deduction origin/main
 
 ## 3. Push
 
-- **WSL 쪽에는 GitHub push 자격증명이 없다** (gh 미설치, HTTPS 헬퍼 없음, SSH 키는 OCI 배포용뿐).
-- 순서대로 시도:
-  1. GitHub MCP 도구: `create_branch` → `push_files`(논리 커밋 단위로 나눠 호출) → 이후 `git fetch` 후 로컬 브랜치를 원격에 맞춘다.
-  2. MCP가 없으면 사용자에게 Windows 쪽(IntelliJ/터미널)에서 push하도록 요청한다.
+- `git push -u origin <branch>` — gh CLI(`~/.local/bin/gh`)가 git credential helper로
+  연동되어 있어 WSL에서 바로 push된다.
+- 인증이 깨졌으면 `gh auth status` 확인 후 `gh auth login -h github.com -p https -w`로
+  재인증한다 (TTY 없어도 디바이스 플로우로 동작).
+- 폴백: GitHub MCP `create_branch` → `push_files`(논리 커밋 단위로 나눠 호출) →
+  이후 `git fetch`로 로컬 브랜치를 원격에 맞춘다.
 
 ## 4. PR 생성
 
 - `.github/pull_request_template.md` 구조를 따른다 (요약 / 변경사항 / 검증 / 체크리스트).
 - 제목은 커밋과 같은 스타일: verb-first, prefix 없음.
-- base는 main. GitHub MCP `create_pull_request` 사용.
+- base는 main. `gh pr create --base main` 사용 (폴백: GitHub MCP `create_pull_request`).
 
 ## 5. CI + 리뷰
 
