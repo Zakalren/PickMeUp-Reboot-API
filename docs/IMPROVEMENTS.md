@@ -53,8 +53,25 @@
 - ❎ Testcontainers 기반 prod 스키마 검증: **도입하지 않기로 결정** (2026-07-12).
   CI prod-boot-check가 실제 MySQL 8.4 + Flyway + Hibernate validate + HTTP 스모크로
   동일 영역을 이미 커버함. 로컬에서 prod 스키마 재현이 필요해지는 시점에 재검토.
-- 📋 남은 항목: 주문(checkout) 도메인 — 도입 시 재고 차감을 원자적 UPDATE
-  (`stock = stock - ? WHERE stock >= ?`)로 #13의 동시성 패턴과 묶어서 설계
+- ✅ 주문(checkout) 도메인 완료 (2026-07-19):
+  - `order/` 패키지: `Order`/`OrderItem`, POST /api/orders(카트 전체 결제),
+    GET /api/orders, GET /api/orders/{id}. 조회는 소유자 스코프
+    (`findByIdAndUserId`) — 타인 주문도 404로 응답해 주문 id 열거를 막음.
+  - 재고 차감은 조건부 원자 UPDATE(`stock = stock - ? WHERE stock >= ?`) —
+    0행이면 409 INSUFFICIENT_STOCK + 전체 롤백. 동시 주문은 행 잠금으로
+    직렬화되어 오버셀이 구조적으로 불가능. 상품별 차감은 **productId 오름차순**으로
+    수행해 상품 집합이 겹치는 동시 주문 간 교차 데드락을 방지.
+  - 벌크 UPDATE는 영속성 컨텍스트를 우회해 로딩된 Product의 stock이 stale해짐 —
+    서비스 흐름을 "스냅샷 캡처 → 차감 → 카트 삭제 → 저장"으로 고정해 차감 이후
+    상품 상태를 읽지 않음(에러 메시지의 최신 재고만 스칼라 쿼리로 조회).
+  - `order_items`는 상품명/가격 **스냅샷**을 보존 — 카탈로그 수정·삭제와 무관하게
+    주문 이력이 그대로 읽힘. product FK는 ON DELETE SET NULL로 상품 삭제를
+    막지 않음. 주문은 불변(상태 없음) — 취소는 아래 백로그.
+- 📋 남은 항목:
+  - 주문 취소 — 재입고를 같은 원자 UPDATE 패턴(`stock = stock + ?`)으로,
+    멱등성(중복 취소 방지)과 함께 설계
+  - 주문 목록 페이지네이션 — fetch join+페이징은 인메모리 페이징 함정이 있어
+    two-query 방식(id 페이징 → items 로딩) 또는 @BatchSize로 설계 필요
 
 ---
 
