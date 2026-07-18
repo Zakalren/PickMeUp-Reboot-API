@@ -7,7 +7,7 @@ CREATE TABLE orders
 (
     id          BIGINT      NOT NULL AUTO_INCREMENT,
     user_id     BIGINT      NOT NULL,
-    total_price INT         NOT NULL,
+    total_price BIGINT      NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     KEY idx_orders_user (user_id),

@@ -5,6 +5,7 @@ import dev.zakalren.pickmeup.order.OrderController;
 import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.user.exception.UserNotFoundException;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +37,16 @@ public class OrderExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInsufficientStock(InsufficientStockException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of("INSUFFICIENT_STOCK", exception.getMessage()));
+    }
+
+    // CartItem is @Version-mapped: a checkout racing a cart edit (or a
+    // double-submitted checkout) can fail the versioned DELETE at commit —
+    // that's a retryable conflict, not a 500
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_CONFLICT",
+                        "The cart was modified concurrently. Retry the order."));
     }
 
     // A vanished session user surfaces here, mirroring CartExceptionHandler

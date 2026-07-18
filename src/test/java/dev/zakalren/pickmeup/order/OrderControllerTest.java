@@ -1,5 +1,6 @@
 package dev.zakalren.pickmeup.order;
 
+import dev.zakalren.pickmeup.cart.CartItem;
 import dev.zakalren.pickmeup.config.SecurityConfig;
 import dev.zakalren.pickmeup.order.dto.OrderItemResponse;
 import dev.zakalren.pickmeup.order.dto.OrderResponse;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -43,7 +45,7 @@ public class OrderControllerTest {
     private OrderResponse orderResponse() {
         return new OrderResponse(
                 1L,
-                11000,
+                11000L,
                 LocalDateTime.now(),
                 List.of(
                         new OrderItemResponse("Chips", 1000, 1),
@@ -102,6 +104,20 @@ public class OrderControllerTest {
                         .with(user(SERVICE_NUMBER).roles("USER")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
+    }
+
+    @Test
+    @DisplayName("Order concurrent cart modification test")
+    void order_concurrentCartModification() throws Exception {
+        // given: 체크아웃과 카트 수정이 경합 — versioned DELETE가 커밋 시점에 실패한 상황
+        given(orderService.order(SERVICE_NUMBER))
+                .willThrow(new ObjectOptimisticLockingFailureException(CartItem.class, 1L));
+
+        // when & then: 500이 아니라 재시도 가능한 409여야 함
+        mockMvc.perform(post("/api/orders")
+                        .with(user(SERVICE_NUMBER).roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_CONFLICT"));
     }
 
     @Test

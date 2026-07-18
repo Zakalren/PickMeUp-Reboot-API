@@ -3,7 +3,6 @@ package dev.zakalren.pickmeup.order;
 import dev.zakalren.pickmeup.cart.CartItem;
 import dev.zakalren.pickmeup.cart.CartItemRepository;
 import dev.zakalren.pickmeup.order.dto.OrderResponse;
-import dev.zakalren.pickmeup.order.exception.EmptyCartException;
 import dev.zakalren.pickmeup.order.exception.OrderNotFoundException;
 import dev.zakalren.pickmeup.product.ProductRepository;
 import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
@@ -31,13 +30,10 @@ public class OrderService {
     public OrderResponse order(String serviceNumber) {
         User user = findUser(serviceNumber);
         List<CartItem> cartItems = cartItemRepository.findByUserIdWithProduct(user.getId());
-        if (cartItems.isEmpty()) {
-            throw new EmptyCartException();
-        }
 
         // Snapshot names/prices before touching stock: the bulk decrement
         // below leaves loaded Product entities stale, so nothing may read
-        // product state after it
+        // product state after it. An empty cart fails here (EmptyCartException).
         Order order = Order.place(user, cartItems);
 
         // Ascending product-id order gives every concurrent checkout the same

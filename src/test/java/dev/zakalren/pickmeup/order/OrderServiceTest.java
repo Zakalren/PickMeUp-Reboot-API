@@ -104,7 +104,7 @@ public class OrderServiceTest {
             OrderResponse response = orderService.order("21-12345678");
 
             // then: 총액과 스냅샷
-            assertThat(response.totalPrice()).isEqualTo(11000); // 1000*1 + 5000*2
+            assertThat(response.totalPrice()).isEqualTo(11000L); // 1000*1 + 5000*2
             assertThat(response.items()).hasSize(2);
             assertThat(response.items().get(0).productName()).isEqualTo("Chips");
             assertThat(response.items().get(0).price()).isEqualTo(1000);
@@ -181,7 +181,7 @@ public class OrderServiceTest {
             // then
             assertThat(responses).hasSize(1);
             assertThat(responses.get(0).id()).isEqualTo(100L);
-            assertThat(responses.get(0).totalPrice()).isEqualTo(2000);
+            assertThat(responses.get(0).totalPrice()).isEqualTo(2000L);
             assertThat(responses.get(0).items()).hasSize(1);
         }
 
