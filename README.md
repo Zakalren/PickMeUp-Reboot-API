@@ -82,6 +82,13 @@ dev.zakalren.pickmeup
 │   ├── ...
 │   ├── dto/
 │   └── exception/
+├── order/
+│   ├── Order.java
+│   ├── OrderItem.java
+│   ├── OrderController.java
+│   ├── ...
+│   ├── dto/
+│   └── exception/
 ├── auth/
 │   ├── AuthController.java
 │   ├── dto/
@@ -246,6 +253,10 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
   behind the reverse proxy (`forward-headers-strategy: native`)
 - Product stock: cart quantities validated against available inventory
   (encapsulated in the entity), exceeding stock returns 409 Conflict
+- Order (checkout) domain: cart-to-order in one transaction with atomic
+  conditional stock decrement (`stock = stock - ? WHERE stock >= ?`) —
+  oversell-proof under concurrency, deadlock-avoiding decrement order,
+  and name/price snapshots so order history survives catalog edits
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
@@ -255,7 +266,7 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ### 📅 Planned
 
-- Order (checkout) domain — designed together with atomic stock decrement
+- Order cancellation (atomic restock + idempotency)
 - README extension with API endpoint reference
 
 ## 📚 Original Project
