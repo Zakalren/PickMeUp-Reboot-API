@@ -55,7 +55,6 @@ git switch -c feature/cart-stock-deduction origin/main
 - `.github/pull_request_template.md` 구조를 따른다 (요약 / 변경사항 / 검증 / 체크리스트).
 - 제목은 커밋과 같은 스타일: verb-first, prefix 없음.
 - base는 main. GitHub MCP `create_pull_request` 사용.
-- 팀 리뷰 시뮬레이션: 가능하면 `request_copilot_review`로 Copilot 리뷰를 요청한다.
 
 ## 5. CI + 리뷰
 
