@@ -40,17 +40,18 @@ git switch -c feature/cart-stock-deduction origin/main
 - 논리 단위로 커밋을 쪼갠다 — 이 프로젝트는 커밋 히스토리로 아키텍처 의사결정을 문서화하는 것이 목표다.
 - 소스 변경이 있으면 push 전에 테스트를 돌린다:
   ```sh
-  cmd.exe /c gradlew.bat test    # WSL에서. 리눅스/CI에선 ./gradlew test
+  ./gradlew test        # Windows 셸에선 gradlew.bat test
   ```
 
 ## 3. Push
 
-- `git push -u origin <branch>` — gh CLI(`~/.local/bin/gh`)가 git credential helper로
-  연동되어 있어 WSL에서 바로 push된다.
-- 인증이 깨졌으면 `gh auth status` 확인 후 `gh auth login -h github.com -p https -w`로
-  재인증한다 (TTY 없어도 디바이스 플로우로 동작).
-- 폴백: GitHub MCP `create_branch` → `push_files`(논리 커밋 단위로 나눠 호출) →
-  이후 `git fetch`로 로컬 브랜치를 원격에 맞춘다.
+- `git push -u origin <branch>`.
+- push 자격증명이 없는 머신이면 gh CLI 연동을 권장:
+  `gh auth login -h github.com -p https -w` (TTY 없어도 디바이스 플로우 동작) 후
+  `gh auth setup-git`. SSH 키 등 이미 쓰는 방식이 있으면 그대로 쓴다.
+- 그래도 push가 불가능한 환경이면 폴백: GitHub MCP `create_branch` →
+  `push_files`(논리 커밋 단위로 나눠 호출) → 이후 `git fetch`로 로컬 브랜치를
+  원격에 맞춘다.
 
 ## 4. PR 생성
 
