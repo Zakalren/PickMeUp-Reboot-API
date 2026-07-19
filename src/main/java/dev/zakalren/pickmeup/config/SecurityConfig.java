@@ -20,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import dev.zakalren.pickmeup.auth.LoginRateLimitFilter;
+import dev.zakalren.pickmeup.user.SignupRateLimitFilter;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
@@ -38,6 +39,8 @@ public class SecurityConfig {
                 // Deliberately not a bean: Boot auto-registers Filter beans
                 // with the servlet container, which would run it twice
                 .addFilterBefore(new LoginRateLimitFilter(objectMapper),
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new SignupRateLimitFilter(objectMapper),
                         UsernamePasswordAuthenticationFilter.class)
 
                 // Share one repository instance between the filter chain and
