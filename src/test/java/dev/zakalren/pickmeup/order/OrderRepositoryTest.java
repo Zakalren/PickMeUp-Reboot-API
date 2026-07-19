@@ -252,6 +252,106 @@ public class OrderRepositoryTest {
     }
 
     @Nested
+    @DisplayName("cancelIfPlaced (조건부 원자 취소)")
+    class CancelIfPlaced {
+
+        @Test
+        @DisplayName("PLACED이고 소유자가 맞으면 1행 갱신, 상태 CANCELLED")
+        void cancelIfPlaced_success() {
+            // given
+            Order order = orderRepository.save(
+                    Order.place(user, List.of(CartItem.create(user, chips, 1))));
+            em.flush();
+
+            // when
+            int updated = orderRepository.cancelIfPlaced(order.getId(), user.getId());
+
+            // then: 벌크 UPDATE는 1차 캐시를 우회하므로 clear 후 다시 읽어야 실제 값
+            assertThat(updated).isEqualTo(1);
+            em.clear();
+            assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus())
+                    .isEqualTo(OrderStatus.CANCELLED);
+        }
+
+        @Test
+        @DisplayName("이미 CANCELLED면 0행 — 상태 유지 (중복 취소 불가)")
+        void cancelIfPlaced_alreadyCancelled() {
+            // given
+            Order order = orderRepository.save(
+                    Order.place(user, List.of(CartItem.create(user, chips, 1))));
+            em.flush();
+            orderRepository.cancelIfPlaced(order.getId(), user.getId());
+            em.clear();
+
+            // when: 두 번째 취소
+            int updated = orderRepository.cancelIfPlaced(order.getId(), user.getId());
+
+            // then
+            assertThat(updated).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("소유자가 아니면 0행 — 상태 유지")
+        void cancelIfPlaced_wrongOwner() {
+            // given
+            User other = userRepository.save(User.create(
+                    "20-99999999", "$pw$", "LEE", "ROKA", "Corporal",
+                    LocalDate.of(2000, 1, 1), "010-9999-9999"
+            ));
+            Order order = orderRepository.save(
+                    Order.place(user, List.of(CartItem.create(user, chips, 1))));
+            em.flush();
+
+            // when
+            int updated = orderRepository.cancelIfPlaced(order.getId(), other.getId());
+
+            // then
+            assertThat(updated).isEqualTo(0);
+            em.clear();
+            assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus())
+                    .isEqualTo(OrderStatus.PLACED);
+        }
+
+        @Test
+        @DisplayName("없는 주문 id면 0행")
+        void cancelIfPlaced_nonexistent() {
+            // when
+            int updated = orderRepository.cancelIfPlaced(999_999L, user.getId());
+
+            // then
+            assertThat(updated).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("incrementStock (조건부 원자 재입고)")
+    class IncrementStock {
+
+        @Test
+        @DisplayName("재고를 정확히 더함, 1행 갱신")
+        void incrementStock_success() {
+            // when
+            int updated = productRepository.incrementStock(chips.getId(), 5);
+
+            // then: 벌크 UPDATE는 1차 캐시를 우회하므로 clear 후 다시 읽어야 실제 값
+            assertThat(updated).isEqualTo(1);
+            em.clear();
+            assertThat(productRepository.findById(chips.getId()).orElseThrow().getStock())
+                    .isEqualTo(105);
+        }
+
+        @Test
+        @DisplayName("없는 상품 id면 0행 — 갱신 없음")
+        void incrementStock_nonexistent() {
+            // when
+            int updated = productRepository.incrementStock(999_999L, 5);
+
+            // then
+            assertThat(updated).isEqualTo(0);
+        }
+    }
+
+    @Nested
     @DisplayName("findByIdAndUserIdWithItems (소유자 스코프)")
     class FindByIdAndUserIdWithItems {
 
