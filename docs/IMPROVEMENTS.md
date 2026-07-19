@@ -6,6 +6,30 @@
 
 ## 처리 현황 (2026-07-03)
 
+- ✅ #22, #23 완료 (2026-07-20): 상품 삭제 FK 충돌 처리 + 회원가입 rate limiting.
+  - #22: `ProductService.delete()`가 `deleteById` 직후 명시적으로 `flush()`해
+    FK 위반을 메서드 안에서(트랜잭션 커밋 시점이 아니라) 즉시 드러낸 뒤
+    `DataIntegrityViolationException` → `ProductInUseException` → 409
+    `PRODUCT_IN_USE`로 변환. 실제 H2 FK 경로로 검증하는 통합 테스트
+    (`ProductDeleteIntegrationTest`)를 추가하는 과정에서, 시딩한 `CartItem`을
+    같은 트랜잭션의 영속성 컨텍스트에 남겨두면 실제 DB FK 위반보다 먼저
+    Hibernate 자체의 flush-time 참조 무결성 사전 검사가
+    `TransientPropertyValueException`(다른 예외 타입이라 catch를 안 탐)을
+    던진다는 걸 발견 — `open-in-view: false`인 실제 운영 흐름에선 재현되지
+    않는 테스트 전용 함정이라 `em.flush(); em.clear();`로 우회.
+  - #23: `SignupRateLimitFilter`(Bucket4j, IP당 10회/10분, 성공·실패 모두
+    소비)를 `LoginRateLimitFilter`와 같은 방식(빈 아님, addFilterBefore)으로
+    등록. 로그인과 달리 실패만이 아니라 매 요청이 토큰을 소비하는 이유:
+    회원가입은 정당한 사용자에게 재시도 급증 시나리오가 없고, 성공·
+    `DUPLICATE_USER` 실패 모두 군번 존재 여부를 흘리기 때문. 구현 중 값을
+    20으로 올려 테스트를 통과시키려던 시도가 있었으나 기각 — 원인은
+    `UserSignupIntegrationTest`/`OrderCheckoutIntegrationTest`/
+    `OrderCancelIntegrationTest`가 같은 캐시된 `@SpringBootTest` 컨텍스트를
+    공유해 회원가입 호출이 우연히 한 IP로 몰린 테스트 아티팩트였음. 실제
+    보안 임계값을 낮추는 대신 세 통합 테스트에 `LoginRateLimitTest`와 같은
+    클래스 전용 IP(`10.0.2.x`)를 부여해 근본 원인을 고쳤고, 한도는 10/10분
+    그대로 유지.
+
 - ✅ 완료: #1(+CartItemControllerTest), #2, #3, #4(SameSite=Lax), #5(+ProductControllerTest),
   #6(H2 콘솔 developmentOnly), #8, #10(dev CORS + prod 리버스 프록시 결정), #11, #12, #14, #16, #20
 - ✅ #12 MySQL 실검증 완료 (2026-07-03): Flyway V1/V2 적용 → Hibernate validate 통과 →
