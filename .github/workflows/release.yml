@@ -1,0 +1,59 @@
+# Release: pushing a v* tag promotes the already-verified image for that
+# commit (built by ci.yml on the main push) to a version tag on GHCR and
+# publishes a GitHub Release. No rebuild — the bytes that were tested and
+# deployed are exactly the bytes that get the version label.
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The sha-tagged manifest is created by ci.yml's merge-image job, which
+      # may still be running when the tag is pushed right after a merge —
+      # poll for it instead of failing on the race.
+      - name: Tag the released image with the version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          # rev-parse instead of GITHUB_SHA: for annotated tags GITHUB_SHA
+          # can be the tag object, not the commit the image was tagged with
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          IMAGE=ghcr.io/zakalren/pickmeup-reboot-api
+
+          for i in $(seq 1 60); do
+            if docker buildx imagetools inspect "$IMAGE:sha-$SHORT_SHA" > /dev/null 2>&1; then
+              docker buildx imagetools create \
+                -t "$IMAGE:$VERSION" \
+                "$IMAGE:sha-$SHORT_SHA"
+              echo "Tagged $IMAGE:$VERSION from sha-$SHORT_SHA."
+              exit 0
+            fi
+            echo "Waiting for $IMAGE:sha-$SHORT_SHA to be published by CI ($i/60)..."
+            sleep 15
+          done
+
+          echo "Image sha-$SHORT_SHA never appeared on GHCR. Is the tagged commit on main and did CI pass?"
+          exit 1
+
+      # Release notes are auto-generated from merged PR titles, which follow
+      # the repo's verb-first convention and read well as-is.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
