@@ -276,66 +276,13 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ## 📊 Progress
 
-### ✅ Completed
+All domains (user, product, cart, order, auth) are feature-complete with the
+full test pyramid and are running in production via the CI/CD pipeline above.
 
-- User domain (entity, repository, service, controller, DTOs, exceptions)
-- Product domain (full CRUD)
-- Cart domain with JPA associations (`@ManyToOne` to User and Product,
-  fetch join + Hibernate Statistics N+1 verification)
-- Spring Security session-based authentication, hardened:
-  session-fixation protection (session-id rotation on login),
-  `SameSite=Lax` / `HttpOnly` session cookie
-- Role-based authorization (`USER`/`ADMIN` — product management is admin-only)
-- Per-domain exception handlers, properly scoped with `assignableTypes`
-- Flyway schema migrations (V1 init, V2 user role) + Docker Compose for MySQL
-- Multi-stage Dockerfile (Temurin 25, JRE-alpine non-root runtime, Boot layer extraction)
-- CI/CD: GitHub Actions (test + prod-boot-check → GHCR publish), Dependabot
-- Deployment (CD stage C): multi-arch images (native amd64/arm64 builds +
-  manifest merge) auto-deployed over SSH to an OCI arm64 instance behind an
-  nginx reverse proxy with TLS — realizing the same-origin topology decision
-- Unified error response format: every error — domain, validation, framework
-  (unreadable JSON, type mismatch), unhandled 500 — returns the same
-  `ErrorResponse` shape via `ResponseEntityExceptionHandler`
-- Cart concurrency handling: optimistic locking (`@Version`) for quantity
-  updates, unique-index race on concurrent add surfaced as 409 Conflict
-- Paginated product listing (`Pageable` + stable `PagedModel` JSON shape)
-- Login brute-force protection: per-IP token bucket (Bucket4j) counting
-  only failed attempts → 429 with `Retry-After`; real client IP restored
-  behind the reverse proxy (`forward-headers-strategy: native`)
-- Product stock: cart quantities validated against available inventory
-  (encapsulated in the entity), exceeding stock returns 409 Conflict
-- Order (checkout) domain: cart-to-order in one transaction with atomic
-  conditional stock decrement (`stock = stock - ? WHERE stock >= ?`) —
-  oversell-proof under concurrency, deadlock-avoiding decrement order,
-  and name/price snapshots so order history survives catalog edits
-- Order cancellation (`POST /api/orders/{id}/cancel`): state transition
-  (`PLACED → CANCELLED`, history preserved) with atomic conditional restock
-  (`stock = stock + ?`); re-cancelling returns 409 `ORDER_ALREADY_CANCELLED`,
-  and the guarded UPDATE makes concurrent double-restock structurally impossible
-- Paginated order listing: two-query pagination (paged order query + a single
-  `IN` items query, grouped in the service) — a fixed 2-statements-per-page
-  count verified via Hibernate Statistics, avoiding the fetch-join paging trap
-- Test pyramid across all domains: unit + slice + integration
-- Product delete FK conflict handling: deleting a product still referenced
-  by a cart line returns 409 `PRODUCT_IN_USE` instead of an uncaught 500
-- Signup abuse protection: per-IP token bucket (Bucket4j) on
-  `/api/users/signup` counting every attempt (not just failures, unlike
-  login) → 429 `SIGNUP_RATE_LIMITED` with `Retry-After`
-- Initial codebase review backlog, now resolved and archived:
-  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
-
-### 🚧 In Progress
-
-- Nothing currently in progress — see
-  [GitHub Issues](https://github.com/Zakalren/PickMeUp-Reboot-API/issues)
-  for planned work
-
-### 📅 Planned
-
-- New improvement ideas are tracked as
-  [GitHub Issues](https://github.com/Zakalren/PickMeUp-Reboot-API/issues)
-  rather than appended to [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md),
-  which now serves as a historical record of the initial review
+Backlog tracking has moved: the initial codebase review lived in
+[`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) (now resolved and archived);
+new improvement ideas are tracked as
+[GitHub Issues](https://github.com/Zakalren/PickMeUp-Reboot-API/issues).
 
 ## 📚 Original Project
 
