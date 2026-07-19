@@ -11,13 +11,9 @@ import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,11 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -137,39 +129,16 @@ public class OrderControllerTest {
     @Test
     @DisplayName("Find my orders test")
     void findMyOrders_success() throws Exception {
-        // given: 목록은 PagedModel(content + page) 포맷으로 응답
-        given(orderService.findMyOrders(eq(SERVICE_NUMBER), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(orderResponse())));
+        // given
+        given(orderService.findMyOrders(SERVICE_NUMBER))
+                .willReturn(List.of(orderResponse()));
 
         // when & then
         mockMvc.perform(get("/api/orders")
                         .with(user(SERVICE_NUMBER).roles("USER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].totalPrice").value(11000))
-                .andExpect(jsonPath("$.content[0].status").value("PLACED"))
-                .andExpect(jsonPath("$.page.totalElements").value(1));
-    }
-
-    @Test
-    @DisplayName("Order list Pageable binding test")
-    void findMyOrders_bindsPageable() throws Exception {
-        // given
-        given(orderService.findMyOrders(eq(SERVICE_NUMBER), any(Pageable.class)))
-                .willReturn(Page.empty());
-
-        // when: 쿼리 파라미터로 페이지 지정
-        mockMvc.perform(get("/api/orders")
-                        .param("page", "1")
-                        .param("size", "5")
-                        .with(user(SERVICE_NUMBER).roles("USER")))
-                .andExpect(status().isOk());
-
-        // then: 파라미터가 Pageable로 바인딩되어 서비스까지 전달됨
-        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(orderService).findMyOrders(eq(SERVICE_NUMBER), captor.capture());
-        assertThat(captor.getValue().getPageNumber()).isEqualTo(1);
-        assertThat(captor.getValue().getPageSize()).isEqualTo(5);
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].totalPrice").value(11000));
     }
 
     @Test

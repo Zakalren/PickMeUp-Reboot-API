@@ -11,15 +11,11 @@ import dev.zakalren.pickmeup.user.User;
 import dev.zakalren.pickmeup.user.UserRepository;
 import dev.zakalren.pickmeup.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +23,6 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
@@ -61,19 +56,11 @@ public class OrderService {
         return OrderResponse.from(orderRepository.save(order));
     }
 
-    // Two-query pagination: (1) a fetch-join-free paged Order query, then
-    // (2) one IN query for that page's items, grouped in memory. Fixed 2
-    // statements per page regardless of page size — avoids the JOIN FETCH +
-    // Pageable in-memory-paging trap while staying N+1-free.
-    public Page<OrderResponse> findMyOrders(String serviceNumber, Pageable pageable) {
+    public List<OrderResponse> findMyOrders(String serviceNumber) {
         User user = findUser(serviceNumber);
-        Page<Order> orders = orderRepository.findByUserId(user.getId(), pageable);
-
-        List<Long> orderIds = orders.getContent().stream().map(Order::getId).toList();
-        Map<Long, List<OrderItem>> itemsByOrderId = orderItemRepository.findByOrderIdIn(orderIds).stream()
-                .collect(Collectors.groupingBy(item -> item.getOrder().getId()));
-
-        return orders.map(order -> OrderResponse.from(order, itemsByOrderId.getOrDefault(order.getId(), List.of())));
+        return orderRepository.findByUserIdWithItems(user.getId()).stream()
+                .map(OrderResponse::from)
+                .toList();
     }
 
     public OrderResponse findMyOrder(String serviceNumber, Long orderId) {

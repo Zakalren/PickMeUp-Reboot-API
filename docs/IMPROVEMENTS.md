@@ -82,19 +82,9 @@
   아니라 기존 409 충돌 계열(INSUFFICIENT_STOCK, ORDER_CONFLICT)과 일관되게, 이중
   취소를 명시적으로 드러냄. 벌크 UPDATE는 영속성 컨텍스트를 우회하므로 응답의
   `status`는 재조회(1차 캐시가 stale) 대신 DTO에서 CANCELLED로 명시해 만듦.
-- ✅ 주문 목록 페이지네이션 완료 (2026-07-19): `GET /api/orders`가 무제한
-  JOIN FETCH에서 `Pageable`(기본 size 20, id DESC) + `PagedModel`로 전환 —
-  `GET /api/products`와 동일한 형태. fetch join + 페이징은 Hibernate가 인메모리
-  페이징(HHH000104)으로 처리하는 함정이 있어, **two-query** 방식 채택:
-  (1) fetch join 없는 페이지 쿼리로 Order만 조회 → (2) 그 페이지의 order id들로
-  `OrderItem`을 `IN` 한 번에 조회 → 서비스에서 그룹핑. 페이지가 꽉 차지 않으면
-  count 쿼리가 생략되어 **페이지당 정확히 2 statement**(페이지 크기와 무관)가
-  되어 이 프로젝트의 Hibernate Statistics N+1 검증 스타일로 고정·단언 가능.
-  `@BatchSize`는 실제로도 2쿼리지만 배치 크기 튜닝에 좌우되는 암묵적·설정 의존
-  방식이라, "설계 결정을 커밋 히스토리로 문서화"라는 목표에는 명시적 두 번째
-  리포지토리 호출이 더 맞음. 결과적으로 `OrderResponse.from(Order)`는 목록에서
-  `order.getItems()`(여기선 lazy 유지)를 읽을 수 없어 외부 items를 받는 오버로드가
-  생김. 단일 조회 `GET /api/orders/{id}`는 그대로 fetch join 단일 쿼리 유지.
+- 📋 남은 항목:
+  - 주문 목록 페이지네이션 — fetch join+페이징은 인메모리 페이징 함정이 있어
+    two-query 방식(id 페이징 → items 로딩) 또는 @BatchSize로 설계 필요
 
 ---
 

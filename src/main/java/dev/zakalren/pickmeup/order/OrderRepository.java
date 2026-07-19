@@ -1,21 +1,19 @@
 package dev.zakalren.pickmeup.order;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    // Paged list, no fetch join: JOIN FETCH + Pageable would page in memory
-    // (Hibernate HHH000104). Items are loaded in a separate IN query and
-    // grouped in the service (two-query pagination) — a fixed, assertable
-    // 2-statement count per page regardless of page size. items stays lazy here.
-    Page<Order> findByUserId(Long userId, Pageable pageable);
+    // Snapshots make a product join unnecessary; one query loads everything.
+    // DISTINCT keeps Hibernate from duplicating orders across joined item rows.
+    @Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.items WHERE o.user.id = :userId ORDER BY o.id DESC")
+    List<Order> findByUserIdWithItems(@Param("userId") Long userId);
 
     // Owner-scoped lookup: someone else's order id yields empty → 404,
     // indistinguishable from a nonexistent id (no order-id enumeration)

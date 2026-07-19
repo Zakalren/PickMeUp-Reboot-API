@@ -1,7 +1,6 @@
 package dev.zakalren.pickmeup.order.dto;
 
 import dev.zakalren.pickmeup.order.Order;
-import dev.zakalren.pickmeup.order.OrderItem;
 import dev.zakalren.pickmeup.order.OrderStatus;
 
 import java.time.LocalDateTime;
@@ -14,20 +13,13 @@ public record OrderResponse(
         OrderStatus status,
         List<OrderItemResponse> items
 ) {
-    // Single-order / checkout endpoints: items come from the fetch-joined order.
     public static OrderResponse from(Order order) {
-        return from(order, order.getItems());
-    }
-
-    // List endpoint: items are supplied externally (two-query pagination) so
-    // this never touches order.getItems(), which stays lazy/unfetched there.
-    public static OrderResponse from(Order order, List<OrderItem> items) {
         return new OrderResponse(
                 order.getId(),
                 order.getTotalPrice(),
                 order.getCreatedAt(),
                 order.getStatus(),
-                items.stream().map(OrderItemResponse::from).toList()
+                order.getItems().stream().map(OrderItemResponse::from).toList()
         );
     }
 

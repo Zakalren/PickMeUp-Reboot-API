@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
@@ -32,9 +30,6 @@ public class OrderRepositoryTest {
 
     @Autowired
     private OrderRepository orderRepository;
-
-    @Autowired
-    private OrderItemRepository orderItemRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -104,19 +99,18 @@ public class OrderRepositoryTest {
     }
 
     @Nested
-    @DisplayName("findByUserId + findByOrderIdIn (two-query 페이지네이션, N+1 검증)")
-    class Pagination {
+    @DisplayName("findByUserIdWithItems (N+1 검증)")
+    class FindByUserIdWithItems {
 
         @Test
-        @DisplayName("페이지 조회 + items IN 조회 = 정확히 2 statement — 주문 수와 무관")
-        void twoQueryPagination_exactly2Statements() {
-            // given: 주문 3건, 각 2 라인 — fetch join 없이 페이지 조회 후 items를 IN으로 로딩
-            for (int i = 0; i < 3; i++) {
-                orderRepository.save(Order.place(user, List.of(
-                        CartItem.create(user, chips, 1),
-                        CartItem.create(user, pizza, 2)
-                )));
-            }
+        @DisplayName("JOIN FETCH로 items 함께 로딩 — 단일 쿼리, 스냅샷 읽기에 product 조인 불필요")
+        void findByUserIdWithItems_noNPlus1() {
+            // given
+            Order order = Order.place(user, List.of(
+                    CartItem.create(user, chips, 1),
+                    CartItem.create(user, pizza, 2)
+            ));
+            orderRepository.save(order);
             em.flush();
             em.clear(); // 1차 캐시 제거 — 쿼리가 실제로 실행되도록
 
@@ -125,29 +119,16 @@ public class OrderRepositoryTest {
                     .getStatistics();
             stats.clear();
 
-            // when: (1) fetch join 없는 페이지 쿼리 — items는 lazy로 남김
-            //       (2) 그 페이지의 order id들로 items를 IN 한 번에 조회
-            Page<Order> orders = orderRepository.findByUserId(user.getId(), PageRequest.of(0, 20));
-            List<Long> orderIds = orders.getContent().stream().map(Order::getId).toList();
-            List<OrderItem> items = orderItemRepository.findByOrderIdIn(orderIds);
-            // 스냅샷 컬럼만 읽는다 — product 프록시를 건드리지 않아야 함
-            items.forEach(OrderItem::getProductName);
-
-            // then: 페이지가 꽉 차지 않아 count 쿼리는 생략됨 — 페이지 쿼리 1 + IN 쿼리 1 = 2
-            assertThat(orders.getContent()).hasSize(3);
-            assertThat(items).hasSize(6);
-            assertThat(stats.getPrepareStatementCount()).isEqualTo(2);
-        }
-
-        @Test
-        @DisplayName("빈 id 목록으로 IN 조회해도 예외 없이 빈 결과 (malformed IN () 우려 해소)")
-        void findByOrderIdIn_emptyIds_returnsEmptyWithoutError() {
-            // given: 실제 DB(H2) 대상 — mock이 아니라 empty-collection IN 파라미터의
-            // 실제 동작을 확인. 주문이 아예 없는 페이지(0건)에서 뒤이어 호출되는 경로.
-            List<OrderItem> items = orderItemRepository.findByOrderIdIn(List.of());
+            // when: 스냅샷 컬럼만 읽는다 — product 프록시를 건드리지 않아야 함
+            List<Order> orders = orderRepository.findByUserIdWithItems(user.getId());
+            orders.forEach(found -> found.getItems()
+                    .forEach(item -> item.getProductName()));
 
             // then
-            assertThat(items).isEmpty();
+            assertThat(orders).hasSize(1);
+            assertThat(orders.get(0).getItems()).hasSize(2);
+            assertThat(orders.get(0).getTotalPrice()).isEqualTo(11000L);
+            assertThat(stats.getPrepareStatementCount()).isEqualTo(1);
         }
     }
 
