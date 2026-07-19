@@ -1,6 +1,7 @@
 # 개선 포인트 정리
 
-> 2026-07-03 기준 코드베이스 전체 리뷰 결과.
+> 2026-07-03 기준 코드베이스 전체 리뷰 결과. 2026-07-20 주문 도메인(체크아웃/취소/페이지네이션)
+> 완성 이후 2차 리뷰로 #22~#40 추가.
 > 심각도 순으로 정리. 각 항목에 근거와 트레이드오프를 함께 적음.
 
 ## 처리 현황 (2026-07-03)
@@ -140,6 +141,42 @@ url: jdbc:mysql://localhost:3006/pickmeup?serverTimezone=Asia/Tokyo&...
 - `serverTimezone=Asia/Tokyo`도 의도인지 확인 필요 — 원본 프로젝트 도메인(ROKAF)은
   Asia/Seoul. 어느 쪽이든 **의도를 정하고 주석이나 커밋 메시지로 남길 것**.
 
+### 22. 장바구니에 담긴 상품을 삭제하면 500 에러 (2026-07-20 발견)
+
+`db/migration/V1__init.sql:43`, `ProductService.java:58-64`, `ProductExceptionHandler.java`
+
+`cart_items.product_id` FK(`fk_cart_items_product`)에 `ON DELETE` 절이 없어 MySQL이
+기본값 RESTRICT로 삭제를 거부한다. `order_items` FK는 이미 `ON DELETE SET NULL` +
+name/price 스냅샷으로 이 문제를 해결했는데(V5 마이그레이션), cart 쪽은 order 도메인이
+생기기 전 설계라 같은 처리가 빠져 있다.
+
+**재현 시나리오**: 사용자 A가 상품 #7을 장바구니에 담아둔 채 체크아웃하지 않음 →
+관리자가 `DELETE /api/products/7` 호출 → MySQL이 FK 제약 위반으로 거부 →
+`DataIntegrityViolationException`이 어디서도 잡히지 않고 `GlobalExceptionHandler`의
+catch-all까지 흘러가 `500 INTERNAL_SERVER_ERROR`로 응답. 관리자는 왜 삭제가 안 되는지
+알 방법이 없고, 장바구니에 한 번이라도 담긴 상품은 사실상 삭제 불가능해진다.
+
+**해결 방향**: `ProductExceptionHandler`에 `DataIntegrityViolationException` →
+409(예: `PRODUCT_IN_USE`) 핸들러 추가. 또는 order와 동일하게 FK를
+`ON DELETE SET NULL`로 바꾸고 `CartItem`에도 스냅샷을 둘지 결정 필요 — 단, 장바구니는
+주문과 달리 "이력 보존"이 목적이 아니므로 오히려 409로 막고 관리자에게 명시적으로
+알리는 쪽이 더 맞을 수 있음(트레이드오프 판단 필요).
+
+### 23. 회원가입에 rate limiting·계정 열거 방어 없음 (2026-07-20 발견)
+
+`UserService.java:22-24`, `DuplicateUserException.java:29-32`, `SecurityConfig.java:60`
+
+로그인(`/api/auth/login`)은 #7에서 Bucket4j 필터로 보호되는데, `/api/users/signup`은
+`permitAll`이면서 아무 제한이 없다. `serviceNumber`(군번, 4~20자)가 예측 가능한
+포맷을 따를 가능성이 높은 도메인 특성상, 응답이 `201`(성공)이냐 `409 DUPLICATE_USER`냐로
+유효한 군번을 무제한으로 열거할 수 있다. 또한 로그인 경로가 막아둔 것과 동일한 종류의
+공격(요청당 무제한 BCrypt 해싱 유발 → CPU 증폭)이 회원가입에는 그대로 뚫려 있다.
+
+**해결 방향**: #7과 동일한 패턴(IP당 토큰 버킷)을 signup에도 적용하거나, 최소한 같은
+필터를 두 경로에 공유하도록 확장. 열거 방어까지 하려면 성공/실패 응답 시간과 형태를
+통일하는 것도 고려(다만 회원가입은 결과가 최종적으로 드러나는 UX 특성상 완전한 방어는
+어려움 — 최소 rate limit만으로도 실질적 방어 효과는 큼).
+
 ---
 
 ## 🟠 Security — 세션 기반 인증을 선택했기 때문에 생기는 숙제들
@@ -205,6 +242,55 @@ SameSite=None + Secure가 필요해지면서 CSRF 토큰이 사실상 필수가 
 계정 잠금이나 rate limiting이 없음. 지금 단계에서 필수는 아니지만, 열거 공격 방어
 (`AuthExceptionHandler`의 통합 401 응답)를 이미 해놓은 만큼 로드맵에는 올려둘 것.
 Bucket4j 필터 또는 실패 카운트 기반 잠금.
+
+> ✅ 위 #7은 2026-07-12에 로그인 경로만 처리 완료. 회원가입 경로는 #23으로 별도 추적.
+
+### 24. `LoginRequest`에 크기 제한 없음 (2026-07-20 발견)
+
+`auth/dto/LoginRequest.java:5-8`
+
+다른 모든 입력 DTO(`UserSignupRequest`, cart DTO들)는 `@Size`/`@Min`으로 상한을 두는데
+`LoginRequest`는 `@NotBlank`뿐이다. `application.yml`에 `server.tomcat.max-http-form-post-size`
+같은 요청 크기 제한도 없어서, 유일하게 완전 비인증으로 항상 열려 있는 엔드포인트가
+페이로드 크기 제한이 없는 상태다. Bucket4j는 실패 횟수만 세지 페이로드 크기는 보지
+않으므로, 대용량 payload를 반복 전송하는 저비용 DoS 벡터가 남아 있음.
+
+**해결 방향**: `LoginRequest` 필드에 `@Size(max = ...)` 추가(다른 DTO와 동일 패턴).
+
+### 25. BCrypt 72바이트 truncation을 침묵 허용 (2026-07-20 발견)
+
+`user/dto/UserSignupRequest.java:12`, `SecurityConfig.java:93-95`
+
+`@Size(min = 8, max = 100)`으로 비밀번호를 100자까지 받지만, 기본 `BCryptPasswordEncoder`는
+72바이트 이후를 조용히 버리고 해싱한다. 90자짜리 비밀번호를 설정한 사용자는 전체가
+보호된다고 믿지만 실제로는 앞 72바이트만 유효하며, 72바이트 이후만 다른 두 비밀번호가
+동일한 해시로 취급된다. 보안 취약점이라기보다 사용자 기대와 실제 동작의 불일치.
+
+**해결 방향**: `@Size(max = 72)`로 상한을 맞추거나, truncation을 명시하는 주석/문서화.
+
+### 26. CI 워크플로 일부 job에 `permissions:` 블록 없음 (2026-07-20 발견)
+
+`.github/workflows/ci.yml` — `test`(16행), `prod-boot-check`(44행), `deploy`(172행) job에
+`permissions:` 블록이 없어 저장소 기본 토큰 권한을 그대로 상속한다. `build-image`(116행),
+`merge-image`(150행)는 이미 `contents: read`/`packages: write`로 최소 권한을 명시하고
+있는데 세 job만 빠짐. 저장소의 기본 워크플로 권한이 read-write로 설정돼 있다면(구형
+저장소의 과거 기본값) `GITHUB_TOKEN`이 필요 이상으로 넓은 권한을 갖게 됨 — 특히
+`deploy`는 배포 비밀(`DEPLOY_SSH_KEY`)을 다루므로 영향이 크다.
+
+**해결 방향**: 세 job에도 최소 권한(`permissions: contents: read` 등)을 명시.
+
+### 27. SSH 배포 host key가 최초 접속 시 무조건 신뢰됨 (2026-07-20 발견)
+
+`.github/workflows/ci.yml:189-191`
+
+`StrictHostKeyChecking=accept-new`는 최초 접속(또는 호스트 키 교체 이후 첫 접속)에서
+서버가 제시하는 키를 검증 없이 그대로 신뢰한다. `known_hosts`가 저장소에 pinning되어
+있지 않음. CI 러너에서 배포 서버로의 경로가 탈취되는 경우(DNS 하이재킹 등) 중간자
+공격에 노출될 수 있음. CI에서 흔한 트레이드오프이긴 하나, 실제 프로덕션 SSH 키가
+오가는 채널이라 기록해 둘 가치가 있음.
+
+**해결 방향**: 배포 서버의 host key를 리포지토리 시크릿이나 `known_hosts` 파일로
+pinning(`StrictHostKeyChecking=yes` + 고정된 known_hosts).
 
 ---
 
@@ -319,6 +405,79 @@ Flyway 도입(#12) 전에 고쳐야 마이그레이션 히스토리가 깔끔함
 `Pageable` 받아서 `Page<ProductResponse>` 반환으로 변경. 장바구니는 사용자당 건수가
 제한적이라 그대로 둬도 무방.
 
+> ✅ 완료 (2026-07-05, products) / 2026-07-19(orders). 아래 #28~#30은 그 이후 발견된
+> 후속 이슈.
+
+### 28. 주문 목록과 단건 조회의 아이템 정렬이 서로 다름 (2026-07-20 발견)
+
+`order/Order.java:39`, `order/OrderItemRepository.java:11`, `order/OrderService.java:72-76`
+
+`Order.items`에는 `@OrderBy("id ASC")`가 붙어 있어 `findByIdAndUserIdWithItems`(단건
+조회, `GET /api/orders/{id}`)의 fetch join 결과는 항상 id 오름차순이다. 반면 목록
+페이지네이션이 쓰는 `findByOrderIdIn(List<Long>)`에는 `ORDER BY`가 전혀 없고,
+`OrderService.findMyOrders`가 이 결과를 `Collectors.groupingBy`로 묶기 때문에 각
+주문의 items 순서는 DB가 우연히 반환하는 행 순서에 달려 있다(H2와 MySQL이 다를 수
+있고, 같은 DB라도 보장되지 않음).
+
+**재현 시나리오**: 아이템 [A, B, C] 순서로 삽입된 주문 하나. `GET /api/orders/{id}`는
+항상 `[A, B, C]`. `GET /api/orders`(목록)는 같은 주문을 `[B, A, C]` 등 다른 순서로
+보여줄 수 있음 — 같은 데이터인데 엔드포인트에 따라 결과가 달라지는 사용자 체감
+버그.
+
+**해결 방향**: `findByOrderIdIn` 쿼리에 `ORDER BY oi.order.id, oi.id` 명시.
+
+### 29. `orders` 테이블에 목록 조회 패턴에 맞는 복합 인덱스 없음 (2026-07-20 발견)
+
+`db/migration/V5__create_orders.sql`, `order/OrderController.java:38`
+
+`orders`는 `user_id` 단일 컬럼 인덱스만 있는데, 실제 목록 조회는
+`WHERE user_id = ? ORDER BY id DESC LIMIT`(기본 정렬 `id,desc`) 패턴이다. 단일
+인덱스로는 필터링만 인덱스를 타고 정렬은 filesort(대량 시 임시 테이블)로 처리됨.
+사용자 주문 이력이 늘어날수록 페이지네이션이 느려짐.
+
+**해결 방향**: `(user_id, id)` 복합 인덱스로 교체하는 Flyway 마이그레이션 추가.
+`CartItem`의 #16(중복 인덱스 제거)과 반대로, 여기는 인덱스를 추가해야 하는 케이스.
+
+### 30. order/product 목록 API에 페이지 크기 상한이 없음 (2026-07-20 발견)
+
+`order/OrderController.java:34-41`, `product/ProductController.java:22-31`,
+`application.yml`
+
+`@PageableDefault(size = 20)`만 있고 `spring.data.web.pageable.max-page-size` 설정이
+없다. Spring Data Web의 내장 기본 상한(2000)에만 암묵적으로 의존하는 상태 — 의도된
+방어가 아니라 프레임워크 기본값이 우연히 막아주는 것. `GET /api/orders?size=2000`
+같은 요청이 가능하고, order 목록은 페이지당 최대 2000개 id로 `IN` 쿼리까지 추가로
+발생함(두 번째 쿼리).
+
+**해결 방향**: `application.yml`에 `spring.data.web.pageable.max-page-size`를
+명시적으로 설정(예: 100).
+
+### 31. 장바구니 "기존 라인 수량 증가" 경로에서 회피 가능한 N+1 (2026-07-20 발견)
+
+`cart/CartItemRepository.java:17`, `cart/CartItemService.java:46-50`,
+`cart/CartItem.java:72-77`
+
+`findByUserIdAndProductId`는 `JOIN FETCH`가 없는데(read 경로가 쓰는
+`findByUserIdWithProduct`는 있음), `add()`의 "이미 있는 상품" 분기가 이걸로 조회한
+뒤 `increaseQuantity()` → `product.validateStockAvailable()`에서 lazy `Product`
+프록시의 `stock`을 참조해 추가 SELECT가 한 번 더 나간다. 트랜잭션 안이라 예외는
+안 나지만(500 아님), 장바구니에서 가장 흔한 조작(기존 상품 수량 추가)마다 회피
+가능한 쿼리가 하나씩 더 나가는 셈.
+
+**해결 방향**: `findByUserIdAndProductId`에도 `JOIN FETCH product` 추가.
+
+### 32. `incrementStock`이 `decrementStock`과 달리 상한 가드가 없음 (2026-07-20 발견, 이론적)
+
+`product/ProductRepository.java:30-32`, `order/OrderService.java:106-108`
+
+`decrementStock`은 `WHERE stock >= :quantity`로 하한을 지키는데, 취소 시 재입고에
+쓰이는 `incrementStock`(`stock = stock + :quantity`)에는 대응하는 상한 가드가 없다.
+관리자가 `stock`을 `Integer.MAX_VALUE` 근처로 설정하고(#40 참고, 현재 상한 검증
+없음) 주문 취소가 충분히 누적되면 MySQL strict mode에서 정수 범위 초과로 UPDATE가
+실패할 수 있고, 이는 `OrderService.cancel()` 어디서도 잡히지 않아 취소 도중 500이
+날 수 있다. 현실적인 재고 수치로는 거의 도달 불가능하지만, 대칭적으로 가드를
+맞춰두면 방어적으로 깔끔함.
+
 ---
 
 ## 🟢 코드 품질 — 동작은 하지만 개선하면 좋은 것들
@@ -360,23 +519,139 @@ Flyway 도입(#12) 전에 고쳐야 마이그레이션 히스토리가 깔끔함
 `validateQuantity`가 우연히 막아 줌). 도메인 확장 시 재고 차감·동시성(#13)과 묶어서
 설계하면 좋은 학습 소재.
 
+> ✅ 완료 (2026-07-12). 아래 #33~#40은 그 이후 발견된 코드 품질 항목.
+
+### 33. `ProductRepository`에 호출되지 않는 메서드 두 개 (2026-07-20 발견)
+
+`product/ProductRepository.java:13,15`
+
+`findByCategory(String)`, `existsByName(String)` 모두 `src/main`, `src/test` 어디서도
+호출되지 않음(#19에서 정리했던 `existsByUserIdAndProductId`와 동일한 패턴). `Product`
+생성 시 이름 중복을 막지 않고 카테고리 필터링 기능도 없으므로, 이 메서드들은 흔적만
+남은 죽은 코드이거나 실제로 필요한 기능이 구현 안 된 것 중 하나. `User` 도메인은
+`DuplicateUserException`으로 이름 중복 방지 선례가 있어, "삭제" 또는 "실제로 이름
+중복 검증 붙이기" 둘 중 하나를 정할 것.
+
+**해결 방향**: 계획 없으면 YAGNI로 제거. 필요하면 `ProductService.create()`에서
+`existsByName` 활용해 409 처리 추가.
+
+### 34. `ProductRepositoryTest` 부재 — 관련 테스트가 엉뚱한 도메인에 위치 (2026-07-20 발견)
+
+`src/test/java/dev/zakalren/pickmeup/product/`, `order/OrderRepositoryTest.java`
+
+`cart`, `order`, `user` 도메인은 모두 자체 `@DataJpaTest`가 있는데 `product`만 없다.
+`Product`의 커스텀 쿼리(`decrementStock`, `incrementStock`, `findStockById`)는
+`OrderRepositoryTest`의 `DecrementStock`/`IncrementStock` nested class로만
+간접 테스트되고 있어, `product` 도메인만 보는 사람은 이 테스트의 존재를 발견하기
+어렵다. #33의 죽은 메서드도 자체 `ProductRepositoryTest`가 있었다면 자연스럽게
+드러났을 가능성이 큼.
+
+**해결 방향**: `ProductRepositoryTest`를 신설하고, stock 관련 쿼리 테스트를
+`order` 쪽에서 이관(또는 두 곳에서 각자 관점으로 검증 — order는 원자성/동시성
+관점, product는 쿼리 자체의 정확성 관점).
+
+### 35. 코드 커버리지 도구 미설정 (2026-07-20 발견)
+
+`build.gradle.kts:1-53`
+
+Jacoco 등 커버리지 플러그인이 없다. "테스트 피라미드를 통한 엔지니어링 역량 증명"이
+프로젝트 목표(CLAUDE.md)인 만큼, 커버리지 리포트/게이트가 없는 건 포트폴리오
+관점에서 아쉬운 공백. 있었다면 #33 같은 죽은 코드도 자동으로 드러났을 것.
+
+**해결 방향**: Jacoco 플러그인 추가 + `build/reports/jacoco`를 README에 노출하거나
+CI에 리포트 업로드 단계 추가(머지 게이트로 강제할지는 별도 판단 — 과도한 커버리지
+강제는 테스트 품질보다 숫자를 좇게 만들 위험도 있음).
+
+### 36. `Product.java`의 오래된 주석 (2026-07-20 발견)
+
+`product/Product.java:36`
+
+```java
+// Available inventory. Cart quantities may not exceed it (enforced by
+// CartItem); actual decrement is deferred until an order domain exists.
+```
+
+order 도메인이 이미 완성되어 실제로 차감이 구현된 지금은 마지막 문장("actual
+decrement is deferred until an order domain exists")이 사실과 다름. 소소하지만
+읽는 사람을 혼란시킬 수 있는 stale 주석.
+
+**해결 방향**: 주석 갱신 또는 삭제.
+
+### 37. Validation 메시지 언어가 DTO마다 혼재 (2026-07-20 발견)
+
+`product/dto/ProductRequest.java`, `user/dto/UserSignupRequest.java`,
+`cart/dto/AddCartItemRequest.java`, `cart/dto/UpdateCartItemRequest.java`
+
+`ProductRequest`, `UserSignupRequest`의 일부 필드(`password`, `telNumber`)는 한글
+`message`를 명시하는데, cart DTO들은 영어 메시지를 쓰고, `UserSignupRequest`의
+`serviceNumber`/`name`/`affiliatedUnit`/`rank`는 아예 override 없이 Jakarta 기본
+영어 메시지가 나간다. CLAUDE.md의 "Korean 주석은 테스트에만" 규칙은 코드 주석
+얘기지만, 클라이언트가 실제로 받는 validation 에러 메시지 언어가 엔드포인트마다
+달라지는 건 별개로 정리가 필요한 일관성 문제.
+
+**해결 방향**: 메시지 언어를 하나로 통일(권장: 한글 — 프로젝트가 한국어 커뮤니케이션
+선호이고 원본이 ROKAF 도메인이므로)하고 전 DTO에 일괄 적용.
+
+### 38. Swagger 애노테이션이 전 컨트롤러에 전무 (2026-07-20 발견, order만의 문제 아님)
+
+`OrderController`, `ProductController`, `CartItemController`, `UserController`,
+`AuthController` 전부
+
+`springdoc-openapi-starter-webmvc-ui`가 의존성에 있는데(`build.gradle.kts:26`)
+`@Operation`/`@ApiResponse` 등 springdoc 애노테이션이 어느 컨트롤러에도 없다.
+springdoc의 자동 추론(메서드 시그니처/DTO 기반)에만 의존 중 — Swagger UI는 뜨지만
+에러 코드별 설명, 예제 응답 등은 README의 API 표로만 확인 가능하고 Swagger 자체에는
+없음.
+
+**해결 방향**: 최소한 각 엔드포인트에 `@Operation(summary=...)` +
+`@ApiResponse(responseCode, description)` 매핑을 README API 표와 맞춰 추가. 전
+컨트롤러 동시 작업이라 범위가 크므로 별도 PR로 분리 권장.
+
+### 39. `CartItemRepository.findByUserId` 죽은 코드 (2026-07-20 발견)
+
+`cart/CartItemRepository.java:12`
+
+product join이 없는 `findByUserId(Long)`가 선언만 되어 있고 어디서도 호출되지
+않음(`findByUserIdWithProduct`만 실제로 쓰임). 지금 당장 버그는 아니지만,
+`open-in-view: false`(#11) 상태에서 나중에 누군가 이 메서드를 트랜잭션 밖에서
+`product`에 접근할 목적으로 쓰면 바로 `LazyInitializationException`을 만나는
+함정 코드.
+
+**해결 방향**: #19와 같은 판단 — 계획 없으면 제거.
+
+### 40. quantity/stock/price에 상한 검증(`@Max`) 없음 (2026-07-20 발견)
+
+`cart/dto/AddCartItemRequest.java:10-12`, `UpdateCartItemRequest.java:7-9`,
+`product/dto/ProductRequest.java:16-26`
+
+`@Min`만 있고 `@Max`가 없다. 현재는 `Order.place`가 곱셈 전에 `long`으로 캐스팅하고
+(`Order.java:65`), `CartItem.validateQuantity`가 int 오버플로 시 음수로 wrap되는
+성질을 우연히 이용해 막고 있어서(`CartItem.java:84-88`) 당장 뚫리는 취약점은
+아니다. 다만 "우연히 막힘"에 의존하는 방어는 방어라 부르기 애매하고, #32(재입고
+상한 가드 비대칭)와 함께 보면 비현실적으로 큰 값(예: `stock = 2_000_000_000`)을
+막을 명시적 장치가 없다는 게 근본 원인.
+
+**해결 방향**: 비즈니스적으로 합리적인 상한을 정해(`@Max(9999)` 등) 명시적으로
+방어. #32와 함께 처리하면 자연스러움.
+
 ---
 
 ## 🧪 테스트 공백
 
 | 대상 | 현황 | 비고 |
 |---|---|---|
-| `CartItemControllerTest` | 없음 (계획됨) | **#1 버그를 잡을 수 있었던 테스트. 최우선** |
-| `ProductService/Controller` 테스트 | 없음 | CRUD 전체가 무테스트 |
-| `AuthController` 로그아웃 테스트 | 없음 | 세션 무효화 검증 |
-| prod 프로파일 기동 검증 | 없음 | #2, #14가 잡히지 않은 이유. Docker Compose 도입 시 Testcontainers-MySQL로 `contextLoads` 하나만 있어도 됨 |
+| `CartItemControllerTest` | ✅ 완료 | #1 버그를 잡을 수 있었던 테스트 |
+| `ProductService/Controller` 테스트 | ✅ 완료 | |
+| `AuthController` 로그아웃 테스트 | ✅ 완료 | |
+| prod 프로파일 기동 검증 | ✅ 완료 (CI `prod-boot-check`) | |
+| `ProductRepositoryTest` (2026-07-20 발견) | 없음 | #34 참고 — stock 쿼리 테스트가 `order` 도메인에 잘못 위치 |
 
 기타: `UserSignupIntegrationTest`는 `@Transactional` 롤백을 쓰면서 `deleteAll()`도 호출 —
-중복이므로 하나만 남기기.
+중복이므로 하나만 남기기. (→ 처리 완료, 2026-07-05)
 
 ---
 
-## 권장 처리 순서
+## 권장 처리 순서 (2026-07-03 라운드, 완료)
 
 1. **#1 오타 수정** (앱이 안 뜸) + `CartItemControllerTest` 작성으로 재발 방지
 2. **#3, #4** 세션 고정 + SameSite (보안, 각각 몇 줄)
@@ -385,3 +660,15 @@ Flyway 도입(#12) 전에 고쳐야 마이그레이션 히스토리가 깔끔함
 5. **#2, #14, #20** prod 설정 정리 → **#12** Flyway (Docker Compose 계획과 함께)
 6. **#5** Role 모델, **#10** CORS/배포 토폴로지 결정
 7. 나머지는 리팩토링 기회에 순차 처리
+
+## 권장 처리 순서 (2026-07-20 라운드, 신규)
+
+1. **#22** 상품 삭제 500 에러 — 사용자 대면 버그, 수정 범위 작음(예외 핸들러 추가)
+2. **#23** 회원가입 rate limiting — #7과 동일 패턴 재사용 가능, 보안 공백
+3. **#24** `LoginRequest` 크기 제한 — 한 줄 수정
+4. **#28** 주문 아이템 정렬 불일치 — 쿼리 한 줄, 사용자 체감 버그
+5. **#29, #30** orders 복합 인덱스 + 페이지 크기 상한 — 스케일 대비, 마이그레이션 하나 + 설정 한 줄
+6. **#31, #32, #40** 장바구니 N+1, incrementStock 가드, quantity/stock 상한 — 묶어서 한 PR
+7. **#33, #34, #39** 죽은 코드 정리 + `ProductRepositoryTest` 신설
+8. **#25~#27** BCrypt truncation, CI permissions, SSH host-key pinning — 인프라 성격이라 별도 PR
+9. **#35~#38** Jacoco, stale 주석, validation 메시지 통일, Swagger 문서화 — 리팩토링 기회에 순차 처리
