@@ -51,7 +51,15 @@ public class UserSignupIntegrationTest {
                 "010-1234-5678"
         );
 
+        // SignupRateLimitFilter의 버킷은 IP당 공유되고, @SpringBootTest 컨텍스트는
+        // 같은 프로파일/설정을 쓰는 다른 통합 테스트 클래스와도 캐시되어 공유되므로
+        // (LoginRateLimitTest의 동일한 이유), 이 클래스 전용 IP만 사용해 다른
+        // 클래스의 회원가입 호출과 한도를 나눠 쓰지 않게 한다.
         mockMvc.perform(post("/api/users/signup")
+                    .with(req -> {
+                        req.setRemoteAddr("10.0.2.1");
+                        return req;
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated());
@@ -100,7 +108,15 @@ public class UserSignupIntegrationTest {
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678"
         );
+        // SignupRateLimitFilter의 버킷은 IP당 공유되고, @SpringBootTest 컨텍스트는
+        // 같은 프로파일/설정을 쓰는 다른 통합 테스트 클래스와도 캐시되어 공유되므로
+        // (LoginRateLimitTest의 동일한 이유), 이 클래스 전용 IP만 사용해 다른
+        // 클래스의 회원가입 호출과 한도를 나눠 쓰지 않게 한다.
         mockMvc.perform(post("/api/users/signup")
+                    .with(req -> {
+                        req.setRemoteAddr("10.0.2.1");
+                        return req;
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated());
@@ -136,7 +152,15 @@ public class UserSignupIntegrationTest {
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678"
         );
+        // SignupRateLimitFilter의 버킷은 IP당 공유되고, @SpringBootTest 컨텍스트는
+        // 같은 프로파일/설정을 쓰는 다른 통합 테스트 클래스와도 캐시되어 공유되므로
+        // (LoginRateLimitTest의 동일한 이유), 이 클래스 전용 IP만 사용해 다른
+        // 클래스의 회원가입 호출과 한도를 나눠 쓰지 않게 한다.
         mockMvc.perform(post("/api/users/signup")
+                    .with(req -> {
+                        req.setRemoteAddr("10.0.2.1");
+                        return req;
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated());
@@ -178,7 +202,15 @@ public class UserSignupIntegrationTest {
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678"
         );
+        // SignupRateLimitFilter의 버킷은 IP당 공유되고, @SpringBootTest 컨텍스트는
+        // 같은 프로파일/설정을 쓰는 다른 통합 테스트 클래스와도 캐시되어 공유되므로
+        // (LoginRateLimitTest의 동일한 이유), 이 클래스 전용 IP만 사용해 다른
+        // 클래스의 회원가입 호출과 한도를 나눠 쓰지 않게 한다.
         mockMvc.perform(post("/api/users/signup")
+                    .with(req -> {
+                        req.setRemoteAddr("10.0.2.1");
+                        return req;
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated());
