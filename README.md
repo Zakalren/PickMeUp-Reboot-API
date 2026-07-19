@@ -324,8 +324,11 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ### 📅 Planned
 
-- Improvement backlog ([`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)) is
-  currently cleared; next items will be added there as they surface
+- 2026-07-20 review added 19 new backlog items to
+  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) (#22-#40) covering a
+  cart-item FK delete bug, signup abuse protection, order listing
+  consistency/indexing, and several code-quality gaps; recommended
+  processing order is at the bottom of that doc
 
 ## 📚 Original Project
 
