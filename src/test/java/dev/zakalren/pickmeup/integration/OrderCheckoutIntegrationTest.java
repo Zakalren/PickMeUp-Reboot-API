@@ -114,18 +114,60 @@ public class OrderCheckoutIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        // 5. 주문 이력 조회 (목록 + 상세)
+        // 5. 주문 이력 조회 (목록 + 상세) — 목록은 PagedModel(content + page) 포맷
         mockMvc.perform(get("/api/orders")
                         .session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].totalPrice").value(3000));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].totalPrice").value(3000))
+                .andExpect(jsonPath("$.content[0].status").value("PLACED"));
 
         String location = orderResult.getResponse().getHeader("Location");
         mockMvc.perform(get(location)
                         .session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].price").value(1000));
+    }
+
+    @Test
+    @DisplayName("Order list is paged: size=1 returns one order per page with correct metadata")
+    void orderList_paginated() throws Exception {
+        // 1. 주문 2건 생성 — 체크아웃이 카트를 비우므로 담기→주문을 두 번 반복
+        checkoutQuantity(2); // 첫 주문 (id 작음)
+        checkoutQuantity(1); // 둘째 주문 (id 큼, 기본 정렬 id DESC라 첫 페이지)
+
+        // 2. size=1 첫 페이지 — 최신 주문 1건 + 전체 2건 메타데이터
+        mockMvc.perform(get("/api/orders")
+                        .param("size", "1")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].totalPrice").value(1000))
+                .andExpect(jsonPath("$.page.size").value(1))
+                .andExpect(jsonPath("$.page.totalElements").value(2))
+                .andExpect(jsonPath("$.page.totalPages").value(2));
+
+        // 3. 둘째 페이지 — 그 다음(오래된) 주문
+        mockMvc.perform(get("/api/orders")
+                        .param("size", "1")
+                        .param("page", "1")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].totalPrice").value(2000))
+                .andExpect(jsonPath("$.page.number").value(1));
+    }
+
+    private void checkoutQuantity(int quantity) throws Exception {
+        AddCartItemRequest addRequest = new AddCartItemRequest(chips.getId(), quantity);
+        mockMvc.perform(post("/api/cart-items")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addRequest)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/orders")
+                        .session(session))
+                .andExpect(status().isCreated());
     }
 
     @Test
