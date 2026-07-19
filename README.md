@@ -235,7 +235,7 @@ Full request/response schemas are on Swagger UI (dev profile).
 | GET | `/api/products/{id}` | Public | 200 | 404 `PRODUCT_NOT_FOUND` |
 | POST | `/api/products` | Admin | 201 | — |
 | PUT | `/api/products/{id}` | Admin | 200 | 404 `PRODUCT_NOT_FOUND` |
-| DELETE | `/api/products/{id}` | Admin | 204 | 404 `PRODUCT_NOT_FOUND` |
+| DELETE | `/api/products/{id}` | Admin | 204 | 404 `PRODUCT_NOT_FOUND` · 409 `PRODUCT_IN_USE` (still referenced by a cart line) |
 
 ### Cart
 
@@ -317,6 +317,8 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
   count verified via Hibernate Statistics, avoiding the fetch-join paging trap
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
+- Product delete FK conflict handling: deleting a product still referenced
+  by a cart line returns 409 `PRODUCT_IN_USE` instead of an uncaught 500
 
 ### 🚧 In Progress
 
@@ -325,10 +327,11 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 ### 📅 Planned
 
 - 2026-07-20 review added 19 new backlog items to
-  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) (#22-#40) covering a
-  cart-item FK delete bug, signup abuse protection, order listing
-  consistency/indexing, and several code-quality gaps; recommended
-  processing order is at the bottom of that doc
+  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) (#22-#40); #22 is done
+  (see Completed above), the remaining 18 — signup abuse protection,
+  order listing consistency/indexing, and several code-quality gaps —
+  are still open, with a recommended processing order at the bottom of
+  that doc
 
 ## 📚 Original Project
 
