@@ -316,24 +316,26 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
   `IN` items query, grouped in the service) — a fixed 2-statements-per-page
   count verified via Hibernate Statistics, avoiding the fetch-join paging trap
 - Test pyramid across all domains: unit + slice + integration
-- Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 - Product delete FK conflict handling: deleting a product still referenced
   by a cart line returns 409 `PRODUCT_IN_USE` instead of an uncaught 500
 - Signup abuse protection: per-IP token bucket (Bucket4j) on
   `/api/users/signup` counting every attempt (not just failures, unlike
   login) → 429 `SIGNUP_RATE_LIMITED` with `Retry-After`
+- Initial codebase review backlog, now resolved and archived:
+  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
 ### 🚧 In Progress
 
-- Working through the improvement backlog ([`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md))
+- Nothing currently in progress — see
+  [GitHub Issues](https://github.com/Zakalren/PickMeUp-Reboot-API/issues)
+  for planned work
 
 ### 📅 Planned
 
-- 2026-07-20 review added 19 new backlog items to
-  [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) (#22-#40); #22 and #23 are
-  done (see Completed above), the remaining 17 — order listing
-  consistency/indexing and several code-quality gaps — are still open,
-  with a recommended processing order at the bottom of that doc
+- New improvement ideas are tracked as
+  [GitHub Issues](https://github.com/Zakalren/PickMeUp-Reboot-API/issues)
+  rather than appended to [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md),
+  which now serves as a historical record of the initial review
 
 ## 📚 Original Project
 

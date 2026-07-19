@@ -15,4 +15,4 @@
 
 - [ ] 커밋 메시지 verb-first, prefix 없음
 - [ ] 논리 단위로 커밋 분리
-- [ ] `docs/IMPROVEMENTS.md` 처리 현황 · README 진행 상황 갱신 (백로그 항목인 경우)
+- [ ] 관련 이슈 close · README 진행 상황 갱신 (백로그 항목인 경우)

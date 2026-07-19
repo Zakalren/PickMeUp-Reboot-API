@@ -64,9 +64,13 @@ dev.zakalren.pickmeup
 
 Where progress is tracked (don't duplicate between these):
 - **README.md** — public-facing summary (completed / in progress / planned)
-- **docs/IMPROVEMENTS.md** — improvement backlog + completed items with
-  reasoning (처리 현황 section). When an improvement lands, record it there
-  and update README's Progress section; do not mirror the details here.
+- **GitHub Issues** — improvement backlog going forward. File new ideas as
+  issues instead of appending to IMPROVEMENTS.md; when one lands, close it
+  and update README's Progress section. Reasoning goes in the issue body/
+  comments, not mirrored here.
+- **docs/IMPROVEMENTS.md** — frozen historical record of the initial
+  2026-07-03 codebase review (처리 현황 section) and how each item was
+  resolved. No new entries.
 
 Quick orientation: all four domains (user, product, cart, auth) are
 implemented with the full test pyramid, session auth + role-based
