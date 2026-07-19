@@ -20,6 +20,10 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -44,6 +48,9 @@ public class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private OrderItemRepository orderItemRepository;
 
     @Mock
     private CartItemRepository cartItemRepository;
@@ -168,23 +175,48 @@ public class OrderServiceTest {
         @Test
         @DisplayName("findMyOrders success test")
         void findMyOrders_success() {
-            // given
+            // given: two-query — 페이지의 Order 조회 후 그 id들로 items를 IN 조회해 그룹핑
             given(userRepository.findByServiceNumber("21-12345678"))
                     .willReturn(Optional.of(user));
 
             Order order = Order.place(user, List.of(CartItem.create(user, chips, 2)));
             ReflectionTestUtils.setField(order, "id", 100L);
-            given(orderRepository.findByUserIdWithItems(1L))
-                    .willReturn(List.of(order));
+            Pageable pageable = PageRequest.of(0, 20);
+            given(orderRepository.findByUserId(1L, pageable))
+                    .willReturn(new PageImpl<>(List.of(order)));
+            given(orderItemRepository.findByOrderIdIn(List.of(100L)))
+                    .willReturn(order.getItems());
 
             // when
-            List<OrderResponse> responses = orderService.findMyOrders("21-12345678");
+            Page<OrderResponse> responses = orderService.findMyOrders("21-12345678", pageable);
+
+            // then: 반환된 페이지의 id로 items를 조회하고, 알맞은 주문에 되붙임
+            verify(orderItemRepository).findByOrderIdIn(List.of(100L));
+            assertThat(responses.getContent()).hasSize(1);
+            assertThat(responses.getContent().get(0).id()).isEqualTo(100L);
+            assertThat(responses.getContent().get(0).totalPrice()).isEqualTo(2000L);
+            assertThat(responses.getContent().get(0).items()).hasSize(1);
+            assertThat(responses.getContent().get(0).items().get(0).productName()).isEqualTo("Chips");
+        }
+
+        @Test
+        @DisplayName("findMyOrders empty page test")
+        void findMyOrders_emptyPage() {
+            // given: 주문이 0건인 페이지 — findByOrderIdIn(빈 리스트) 호출이 문제 없이 빈 결과
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+            Pageable pageable = PageRequest.of(0, 20);
+            given(orderRepository.findByUserId(1L, pageable))
+                    .willReturn(Page.empty(pageable));
+            given(orderItemRepository.findByOrderIdIn(List.of()))
+                    .willReturn(List.of());
+
+            // when
+            Page<OrderResponse> responses = orderService.findMyOrders("21-12345678", pageable);
 
             // then
-            assertThat(responses).hasSize(1);
-            assertThat(responses.get(0).id()).isEqualTo(100L);
-            assertThat(responses.get(0).totalPrice()).isEqualTo(2000L);
-            assertThat(responses.get(0).items()).hasSize(1);
+            assertThat(responses.getContent()).isEmpty();
+            verify(orderItemRepository).findByOrderIdIn(List.of());
         }
 
         @Test
