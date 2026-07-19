@@ -2,13 +2,16 @@ package dev.zakalren.pickmeup.order;
 
 import dev.zakalren.pickmeup.order.dto.OrderResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -29,10 +32,12 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<OrderResponse>> findMyOrders(
-            @AuthenticationPrincipal UserDetails userDetails
+    public ResponseEntity<PagedModel<OrderResponse>> findMyOrders(
+            @AuthenticationPrincipal UserDetails userDetails,
+            // Newest-first by default; history grows unbounded, so it's paged
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(orderService.findMyOrders(userDetails.getUsername()));
+        return ResponseEntity.ok(new PagedModel<>(orderService.findMyOrders(userDetails.getUsername(), pageable)));
     }
 
     @GetMapping("/{orderId}")
