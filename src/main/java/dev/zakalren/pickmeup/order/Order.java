@@ -13,8 +13,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// Immutable once placed — no updatedAt and no mutating methods; cancellation
-// (with restocking) is a deliberate follow-up, tracked in docs/IMPROVEMENTS.md.
+// No updatedAt and no mutating methods on the loaded entity. Cancellation is
+// the one state transition (PLACED -> CANCELLED): it's performed by an atomic
+// conditional UPDATE at the repository layer (OrderRepository.cancelIfPlaced),
+// not by a setter here, so the row is never deleted and history stays readable.
 @Entity
 @Table(name = "orders") // ORDER is a MySQL reserved word
 @Getter
@@ -37,6 +39,10 @@ public class Order {
     @OrderBy("id ASC") // Deterministic line order across H2 dev and MySQL prod
     private List<OrderItem> items = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private OrderStatus status;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -51,6 +57,7 @@ public class Order {
         }
         Order order = new Order();
         order.user = user;
+        order.status = OrderStatus.PLACED;
         long total = 0;
         for (CartItem cartItem : cartItems) {
             OrderItem item = OrderItem.from(order, cartItem);

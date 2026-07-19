@@ -5,6 +5,7 @@ import dev.zakalren.pickmeup.config.SecurityConfig;
 import dev.zakalren.pickmeup.order.dto.OrderItemResponse;
 import dev.zakalren.pickmeup.order.dto.OrderResponse;
 import dev.zakalren.pickmeup.order.exception.EmptyCartException;
+import dev.zakalren.pickmeup.order.exception.OrderAlreadyCancelledException;
 import dev.zakalren.pickmeup.order.exception.OrderNotFoundException;
 import dev.zakalren.pickmeup.product.exception.InsufficientStockException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
@@ -43,10 +44,15 @@ public class OrderControllerTest {
     private CustomUserDetailsService customUserDetailsService;
 
     private OrderResponse orderResponse() {
+        return orderResponse(OrderStatus.PLACED);
+    }
+
+    private OrderResponse orderResponse(OrderStatus status) {
         return new OrderResponse(
                 1L,
                 11000L,
                 LocalDateTime.now(),
+                status,
                 List.of(
                         new OrderItemResponse("Chips", 1000, 1),
                         new OrderItemResponse("Pizza", 5000, 2)
@@ -162,5 +168,55 @@ public class OrderControllerTest {
                         .with(user(SERVICE_NUMBER).roles("USER")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Cancel order test")
+    void cancel_success() throws Exception {
+        // given: 취소된 주문은 status CANCELLED로 응답
+        given(orderService.cancel(SERVICE_NUMBER, 1L))
+                .willReturn(orderResponse(OrderStatus.CANCELLED));
+
+        // when & then
+        mockMvc.perform(post("/api/orders/1/cancel")
+                        .with(user(SERVICE_NUMBER).roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    @DisplayName("Unauthenticated cancel test")
+    void cancel_unauthenticated() throws Exception {
+        mockMvc.perform(post("/api/orders/1/cancel"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Cancel missing or not-owned order test")
+    void cancel_notFound() throws Exception {
+        // given: 없는 주문이든 남의 주문이든 동일하게 404 (주문 id 열거 방지)
+        given(orderService.cancel(SERVICE_NUMBER, 999L))
+                .willThrow(new OrderNotFoundException(999L));
+
+        // when & then
+        mockMvc.perform(post("/api/orders/999/cancel")
+                        .with(user(SERVICE_NUMBER).roles("USER")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Cancel already-cancelled order test")
+    void cancel_alreadyCancelled() throws Exception {
+        // given: 이미 취소된 주문 재취소는 409 (조용한 204가 아니라 명시적 충돌)
+        given(orderService.cancel(SERVICE_NUMBER, 1L))
+                .willThrow(new OrderAlreadyCancelledException(1L));
+
+        // when & then
+        mockMvc.perform(post("/api/orders/1/cancel")
+                        .with(user(SERVICE_NUMBER).roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_ALREADY_CANCELLED"));
     }
 }

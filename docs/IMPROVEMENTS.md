@@ -67,9 +67,22 @@
   - `order_items`는 상품명/가격 **스냅샷**을 보존 — 카탈로그 수정·삭제와 무관하게
     주문 이력이 그대로 읽힘. product FK는 ON DELETE SET NULL로 상품 삭제를
     막지 않음. 주문은 불변(상태 없음) — 취소는 아래 백로그.
+- ✅ 주문 취소 완료 (2026-07-19): `POST /api/orders/{id}/cancel` — DELETE가 아니라
+  상태 전이. 주문 행은 삭제하지 않고 `PLACED → CANCELLED`로만 바꿔 이력이 계속
+  읽힘(응답에 `status` 필드 추가). 각 라인 상품을 조건부 원자 UPDATE(`stock = stock + ?`,
+  재고 차감의 거울상)로 재입고 — productId 오름차순으로 수행해 동시 주문과의 교차
+  데드락을 방지. 상품이 이미 삭제된 라인(`OrderItem.product == null`, FK
+  ON DELETE SET NULL)은 재입고 대상이 없으므로 건너뜀.
+  **멱등성/충돌 처리**: 소유자 확인 + 상태 가드를 한 개의 조건부 UPDATE로 합침
+  (`WHERE id=? AND user_id=? AND status='PLACED'`) — 재고 차감과 같은 트레이드오프로,
+  행 잠금이 직렬화하므로 동시 이중 취소가 재고를 이중 재입고할 수 없음
+  (SELECT-then-UPDATE의 TOCTOU 간극이 없음). 0행은 모호(이미취소/타인/없음)해
+  서비스가 사전 `findByIdAndUserIdWithItems`로 존재·소유를 먼저 확인해 404와 409를
+  구분. 이미 취소된 주문 재취소는 **409 ORDER_ALREADY_CANCELLED** — 조용한 204가
+  아니라 기존 409 충돌 계열(INSUFFICIENT_STOCK, ORDER_CONFLICT)과 일관되게, 이중
+  취소를 명시적으로 드러냄. 벌크 UPDATE는 영속성 컨텍스트를 우회하므로 응답의
+  `status`는 재조회(1차 캐시가 stale) 대신 DTO에서 CANCELLED로 명시해 만듦.
 - 📋 남은 항목:
-  - 주문 취소 — 재입고를 같은 원자 UPDATE 패턴(`stock = stock + ?`)으로,
-    멱등성(중복 취소 방지)과 함께 설계
   - 주문 목록 페이지네이션 — fetch join+페이징은 인메모리 페이징 함정이 있어
     two-query 방식(id 페이징 → items 로딩) 또는 @BatchSize로 설계 필요
 
