@@ -138,6 +138,17 @@ public class OrderRepositoryTest {
             assertThat(items).hasSize(6);
             assertThat(stats.getPrepareStatementCount()).isEqualTo(2);
         }
+
+        @Test
+        @DisplayName("빈 id 목록으로 IN 조회해도 예외 없이 빈 결과 (malformed IN () 우려 해소)")
+        void findByOrderIdIn_emptyIds_returnsEmptyWithoutError() {
+            // given: 실제 DB(H2) 대상 — mock이 아니라 empty-collection IN 파라미터의
+            // 실제 동작을 확인. 주문이 아예 없는 페이지(0건)에서 뒤이어 호출되는 경로.
+            List<OrderItem> items = orderItemRepository.findByOrderIdIn(List.of());
+
+            // then
+            assertThat(items).isEmpty();
+        }
     }
 
     @Nested
