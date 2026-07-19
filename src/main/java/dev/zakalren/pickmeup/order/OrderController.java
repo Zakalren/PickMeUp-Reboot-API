@@ -42,4 +42,15 @@ public class OrderController {
     ) {
         return ResponseEntity.ok(orderService.findMyOrder(userDetails.getUsername(), orderId));
     }
+
+    // Cancel (not DELETE): the order isn't removed, it transitions to CANCELLED
+    // and restocks each line. Returns the updated resource so the client needn't
+    // re-GET. 404 if not found/not owned, 409 if already cancelled.
+    @PostMapping("/{orderId}/cancel")
+    public ResponseEntity<OrderResponse> cancel(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long orderId
+    ) {
+        return ResponseEntity.ok(orderService.cancel(userDetails.getUsername(), orderId));
+    }
 }

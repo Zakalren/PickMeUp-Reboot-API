@@ -4,6 +4,7 @@ import dev.zakalren.pickmeup.cart.CartItem;
 import dev.zakalren.pickmeup.cart.CartItemRepository;
 import dev.zakalren.pickmeup.order.dto.OrderResponse;
 import dev.zakalren.pickmeup.order.exception.EmptyCartException;
+import dev.zakalren.pickmeup.order.exception.OrderAlreadyCancelledException;
 import dev.zakalren.pickmeup.order.exception.OrderNotFoundException;
 import dev.zakalren.pickmeup.product.Product;
 import dev.zakalren.pickmeup.product.ProductRepository;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -197,6 +199,105 @@ public class OrderServiceTest {
             // when & then
             assertThatThrownBy(() -> orderService.findMyOrder("21-12345678", 999L))
                     .isInstanceOf(OrderNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Cancel order")
+    class Cancel {
+
+        @Test
+        @DisplayName("cancel success test")
+        void cancel_success() {
+            // given: chips 1개(id 10), pizza 2개(id 5) 주문 — 취소 시 재입고
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Order placed = Order.place(user, List.of(
+                    CartItem.create(user, chips, 1),
+                    CartItem.create(user, pizza, 2)
+            ));
+            ReflectionTestUtils.setField(placed, "id", 100L);
+
+            given(orderRepository.findByIdAndUserIdWithItems(100L, 1L))
+                    .willReturn(Optional.of(placed));
+            given(orderRepository.cancelIfPlaced(100L, 1L)).willReturn(1);
+            given(productRepository.incrementStock(5L, 2)).willReturn(1);
+            given(productRepository.incrementStock(10L, 1)).willReturn(1);
+
+            // when
+            OrderResponse response = orderService.cancel("21-12345678", 100L);
+
+            // then: 상태는 CANCELLED (벌크 UPDATE가 영속성 컨텍스트를 우회하므로 DTO에서 명시),
+            //       재입고는 productId 오름차순 (데드락 방지): pizza(5) → chips(10)
+            assertThat(response.status()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(response.items()).hasSize(2);
+            InOrder restockOrder = inOrder(productRepository);
+            restockOrder.verify(productRepository).incrementStock(5L, 2);
+            restockOrder.verify(productRepository).incrementStock(10L, 1);
+        }
+
+        @Test
+        @DisplayName("cancel already-cancelled test")
+        void cancel_alreadyCancelled() {
+            // given: 소유/존재는 확인되지만 조건부 UPDATE가 0행 — 이미 취소된 주문
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Order order = Order.place(user, List.of(CartItem.create(user, chips, 1)));
+            ReflectionTestUtils.setField(order, "id", 100L);
+            given(orderRepository.findByIdAndUserIdWithItems(100L, 1L))
+                    .willReturn(Optional.of(order));
+            given(orderRepository.cancelIfPlaced(100L, 1L)).willReturn(0);
+
+            // when & then: 재입고는 일어나면 안 됨 (중복 취소로 재고 이중 증가 방지)
+            assertThatThrownBy(() -> orderService.cancel("21-12345678", 100L))
+                    .isInstanceOf(OrderAlreadyCancelledException.class);
+            verify(productRepository, never()).incrementStock(anyLong(), anyInt());
+        }
+
+        @Test
+        @DisplayName("cancel not found or not owned test")
+        void cancel_notFound() {
+            // given: 없는 주문이든 남의 주문이든 empty — 404, 조건부 UPDATE까지 가지 않음
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+            given(orderRepository.findByIdAndUserIdWithItems(999L, 1L))
+                    .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderService.cancel("21-12345678", 999L))
+                    .isInstanceOf(OrderNotFoundException.class);
+            verify(orderRepository, never()).cancelIfPlaced(anyLong(), anyLong());
+            verify(productRepository, never()).incrementStock(anyLong(), anyInt());
+        }
+
+        @Test
+        @DisplayName("cancel skips restock for deleted product line test")
+        void cancel_skipsDeletedProduct() {
+            // given: 한 라인의 product가 삭제됨(getProduct() == null, FK ON DELETE SET NULL)
+            given(userRepository.findByServiceNumber("21-12345678"))
+                    .willReturn(Optional.of(user));
+
+            Order order = Order.place(user, List.of(
+                    CartItem.create(user, chips, 1),
+                    CartItem.create(user, pizza, 2)
+            ));
+            ReflectionTestUtils.setField(order, "id", 100L);
+            // pizza 라인(index 1)의 product를 null로 — 스냅샷 컬럼은 그대로 남아 있음
+            ReflectionTestUtils.setField(order.getItems().get(1), "product", null);
+
+            given(orderRepository.findByIdAndUserIdWithItems(100L, 1L))
+                    .willReturn(Optional.of(order));
+            given(orderRepository.cancelIfPlaced(100L, 1L)).willReturn(1);
+            given(productRepository.incrementStock(10L, 1)).willReturn(1);
+
+            // when
+            orderService.cancel("21-12345678", 100L);
+
+            // then: 살아있는 chips만 재입고, 삭제된 product 라인은 건너뜀 (NPE 아님)
+            verify(productRepository).incrementStock(10L, 1);
+            verify(productRepository, never()).incrementStock(eq(5L), anyInt());
         }
     }
 }

@@ -24,6 +24,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("UPDATE Product p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
     int decrementStock(@Param("id") Long id, @Param("quantity") int quantity);
 
+    // Restock mirror of decrementStock (order cancellation). No stock guard —
+    // an increment can't go negative. Same bulk-update caveat: callers must not
+    // read stock from a loaded entity afterwards in the same transaction.
+    @Modifying
+    @Query("UPDATE Product p SET p.stock = p.stock + :quantity WHERE p.id = :id")
+    int incrementStock(@Param("id") Long id, @Param("quantity") int quantity);
+
     // Scalar query: reads the current database value directly, unlike findById
     // which would return the stale entity from the first-level cache
     @Query("SELECT p.stock FROM Product p WHERE p.id = :id")

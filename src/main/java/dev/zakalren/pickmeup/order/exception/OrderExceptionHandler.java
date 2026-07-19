@@ -39,6 +39,15 @@ public class OrderExceptionHandler {
                 .body(ErrorResponse.of("INSUFFICIENT_STOCK", exception.getMessage()));
     }
 
+    // 409: the order exists and is owned by the caller but is already CANCELLED
+    // — re-cancelling is a state conflict, consistent with the conflict family
+    // above (chosen over a silent 204 so double-cancel is explicit, not masked)
+    @ExceptionHandler(OrderAlreadyCancelledException.class)
+    public ResponseEntity<ErrorResponse> handleAlreadyCancelled(OrderAlreadyCancelledException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("ORDER_ALREADY_CANCELLED", exception.getMessage()));
+    }
+
     // CartItem is @Version-mapped: a checkout racing a cart edit (or a
     // double-submitted checkout) can fail the versioned DELETE at commit —
     // that's a retryable conflict, not a 500
