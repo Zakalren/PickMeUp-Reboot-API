@@ -148,7 +148,13 @@ public class OrderCancelIntegrationTest {
                 serviceNumber, "password1234", name, "ROKAF", "Private",
                 LocalDate.of(2002, 11, 8), "010-1234-5678"
         );
+        // 클래스 전용 IP — 다른 @SpringBootTest 통합 테스트 클래스와 SignupRateLimitFilter
+        // 버킷을 공유하지 않기 위함 (UserSignupIntegrationTest 상단 주석 참고)
         mockMvc.perform(post("/api/users/signup")
+                        .with(req -> {
+                            req.setRemoteAddr("10.0.2.3");
+                            return req;
+                        })
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated());
