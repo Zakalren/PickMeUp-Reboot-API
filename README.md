@@ -251,8 +251,9 @@ Full request/response schemas are on Swagger UI (dev profile).
 | Method | Path | Auth | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/orders` | Session | 201 | 400 `EMPTY_CART` · 409 `INSUFFICIENT_STOCK` (atomic stock check) · 409 `ORDER_CONFLICT` (cart modified concurrently) |
-| GET | `/api/orders` | Session | 200 | — |
+| GET | `/api/orders` | Session | 200 | — (paginated: `page`, `size` default 20, `sort` default `id,desc`; stable `PagedModel` shape) |
 | GET | `/api/orders/{id}` | Session | 200 | 404 `ORDER_NOT_FOUND` (also for another user's order — no id enumeration) |
+| POST | `/api/orders/{id}/cancel` | Session | 200 | 404 `ORDER_NOT_FOUND` (also for another user's order) · 409 `ORDER_ALREADY_CANCELLED` (idempotent-safe atomic restock) |
 
 ## ⚙️ CI/CD Pipeline
 
@@ -307,6 +308,13 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
   conditional stock decrement (`stock = stock - ? WHERE stock >= ?`) —
   oversell-proof under concurrency, deadlock-avoiding decrement order,
   and name/price snapshots so order history survives catalog edits
+- Order cancellation (`POST /api/orders/{id}/cancel`): state transition
+  (`PLACED → CANCELLED`, history preserved) with atomic conditional restock
+  (`stock = stock + ?`); re-cancelling returns 409 `ORDER_ALREADY_CANCELLED`,
+  and the guarded UPDATE makes concurrent double-restock structurally impossible
+- Paginated order listing: two-query pagination (paged order query + a single
+  `IN` items query, grouped in the service) — a fixed 2-statements-per-page
+  count verified via Hibernate Statistics, avoiding the fetch-join paging trap
 - Test pyramid across all domains: unit + slice + integration
 - Improvement backlog with reasoning: [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)
 
@@ -316,7 +324,8 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 
 ### 📅 Planned
 
-- Order cancellation (atomic restock + idempotency)
+- Improvement backlog ([`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md)) is
+  currently cleared; next items will be added there as they surface
 
 ## 📚 Original Project
 
