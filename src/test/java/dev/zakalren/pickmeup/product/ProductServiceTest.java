@@ -2,6 +2,7 @@ package dev.zakalren.pickmeup.product;
 
 import dev.zakalren.pickmeup.product.dto.ProductRequest;
 import dev.zakalren.pickmeup.product.dto.ProductResponse;
+import dev.zakalren.pickmeup.product.exception.ProductInUseException;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -177,6 +180,19 @@ public class ProductServiceTest {
             assertThatThrownBy(() -> productService.delete(999L))
                     .isInstanceOf(ProductNotFoundException.class);
             verify(productRepository, never()).deleteById(any());
+        }
+
+        @Test
+        @DisplayName("delete product still referenced by a cart line test")
+        void delete_productInUse() {
+            // given
+            given(productRepository.existsById(1L)).willReturn(true);
+            doThrow(new DataIntegrityViolationException("FK violation"))
+                    .when(productRepository).flush();
+
+            // when & then
+            assertThatThrownBy(() -> productService.delete(1L))
+                    .isInstanceOf(ProductInUseException.class);
         }
     }
 }

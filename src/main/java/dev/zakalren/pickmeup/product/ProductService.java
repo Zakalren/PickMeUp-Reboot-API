@@ -2,8 +2,10 @@ package dev.zakalren.pickmeup.product;
 
 import dev.zakalren.pickmeup.product.dto.ProductRequest;
 import dev.zakalren.pickmeup.product.dto.ProductResponse;
+import dev.zakalren.pickmeup.product.exception.ProductInUseException;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -60,6 +62,14 @@ public class ProductService {
         if (!productRepository.existsById(id)) {
             throw new ProductNotFoundException(id);
         }
-        productRepository.deleteById(id);
+        try {
+            productRepository.deleteById(id);
+            // Force the DELETE to execute now so a cart-referencing FK
+            // violation surfaces here instead of at transaction commit,
+            // after this method (and its try/catch) has already returned.
+            productRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ProductInUseException(id);
+        }
     }
 }

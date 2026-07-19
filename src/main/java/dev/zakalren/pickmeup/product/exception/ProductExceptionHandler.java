@@ -19,4 +19,11 @@ public class ProductExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("PRODUCT_NOT_FOUND", exception.getMessage()));
     }
+
+    @ExceptionHandler(ProductInUseException.class)
+    public ResponseEntity<ErrorResponse> handleInUse(ProductInUseException exception) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("PRODUCT_IN_USE", exception.getMessage()));
+    }
 }

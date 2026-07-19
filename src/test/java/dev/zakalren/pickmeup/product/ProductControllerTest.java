@@ -3,6 +3,7 @@ package dev.zakalren.pickmeup.product;
 import dev.zakalren.pickmeup.config.SecurityConfig;
 import dev.zakalren.pickmeup.product.dto.ProductRequest;
 import dev.zakalren.pickmeup.product.dto.ProductResponse;
+import dev.zakalren.pickmeup.product.exception.ProductInUseException;
 import dev.zakalren.pickmeup.product.exception.ProductNotFoundException;
 import dev.zakalren.pickmeup.user.CustomUserDetailsService;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +26,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -176,5 +178,19 @@ public class ProductControllerTest {
         mockMvc.perform(delete("/api/products/1")
                         .with(user("21-12345678").roles("USER")))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Delete product still referenced by a cart line test")
+    void delete_productInUse_conflict() throws Exception {
+        // given
+        doThrow(new ProductInUseException(1L))
+                .when(productService).delete(1L);
+
+        // when & then
+        mockMvc.perform(delete("/api/products/1")
+                        .with(user("11-00000001").roles("ADMIN")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRODUCT_IN_USE"));
     }
 }
