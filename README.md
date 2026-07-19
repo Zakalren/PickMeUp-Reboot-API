@@ -204,6 +204,56 @@ docker pull ghcr.io/zakalren/pickmeup-reboot-api:latest
 
 HTML report is generated at `build/reports/tests/test/index.html`.
 
+## 📖 API Endpoints
+
+Authentication is a session cookie (`JSESSIONID`) issued on login. Every
+**Session** endpoint answers `401` without a valid session; **Admin** endpoints
+additionally answer `403` for non-admin users. All errors share the unified
+`ErrorResponse` shape — `{"code", "message", "fieldErrors"?}` — and request
+validation failures return `400 VALIDATION_FAILED` with per-field messages.
+Full request/response schemas are on Swagger UI (dev profile).
+
+### Auth
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/auth/login` | Public | 200 | 401 `INVALID_CREDENTIALS` · 429 `LOGIN_RATE_LIMITED` (per-IP, failed attempts only, with `Retry-After`) |
+| POST | `/api/auth/logout` | Session | 204 | — |
+
+### Users
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/users/signup` | Public | 201 | 409 `DUPLICATE_USER` |
+| GET | `/api/users/me` | Session | 200 | 404 `USER_NOT_FOUND` |
+
+### Products
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/products` | Public | 200 | — (paginated: `page`, `size` default 20, `sort` default `id`; stable `PagedModel` shape) |
+| GET | `/api/products/{id}` | Public | 200 | 404 `PRODUCT_NOT_FOUND` |
+| POST | `/api/products` | Admin | 201 | — |
+| PUT | `/api/products/{id}` | Admin | 200 | 404 `PRODUCT_NOT_FOUND` |
+| DELETE | `/api/products/{id}` | Admin | 204 | 404 `PRODUCT_NOT_FOUND` |
+
+### Cart
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/cart-items` | Session | 200 | — |
+| POST | `/api/cart-items` | Session | 201 | 404 `PRODUCT_NOT_FOUND` · 409 `INSUFFICIENT_STOCK` · 409 `CART_ITEM_CONFLICT` (concurrent add) |
+| PUT | `/api/cart-items/{id}` | Session | 200 | 404 `CART_ITEM_NOT_FOUND` · 409 `INSUFFICIENT_STOCK` · 409 `CART_ITEM_CONFLICT` (version conflict) |
+| DELETE | `/api/cart-items/{id}` | Session | 204 | 404 `CART_ITEM_NOT_FOUND` |
+
+### Orders
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/orders` | Session | 201 | 400 `EMPTY_CART` · 409 `INSUFFICIENT_STOCK` (atomic stock check) · 409 `ORDER_CONFLICT` (cart modified concurrently) |
+| GET | `/api/orders` | Session | 200 | — |
+| GET | `/api/orders/{id}` | Session | 200 | 404 `ORDER_NOT_FOUND` (also for another user's order — no id enumeration) |
+
 ## ⚙️ CI/CD Pipeline
 
 Every push and PR runs `.github/workflows/ci.yml`:
@@ -267,7 +317,6 @@ Dependabot opens weekly PRs for workflow actions, Gradle dependencies (minor/pat
 ### 📅 Planned
 
 - Order cancellation (atomic restock + idempotency)
-- README extension with API endpoint reference
 
 ## 📚 Original Project
 
