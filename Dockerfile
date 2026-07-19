@@ -14,7 +14,7 @@ RUN ./gradlew bootJar --no-daemon
 
 # Split the fat jar into layers (dependencies change rarely, application
 # code changes every build) so image pulls only transfer what changed
-RUN java -Djarmode=tools -jar build/libs/*-SNAPSHOT.jar extract --layers --launcher --destination extracted
+RUN java -Djarmode=tools -jar build/libs/*.jar extract --layers --launcher --destination extracted
 
 # ---- Runtime stage: JRE-only Alpine image, non-root ----
 FROM eclipse-temurin:25-jre-alpine

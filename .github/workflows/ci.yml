@@ -77,7 +77,7 @@ jobs:
           DB_USERNAME: pickmeup
           DB_PASSWORD: pickmeup-ci
         run: |
-          java -jar build/libs/*-SNAPSHOT.jar --spring.profiles.active=prod &
+          java -jar build/libs/*.jar --spring.profiles.active=prod &
           APP_PID=$!
 
           for i in $(seq 1 45); do
