@@ -18,9 +18,13 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public Page<ProductResponse> findAll(Pageable pageable) {
-        return productRepository.findAll(pageable)
+    public Page<ProductResponse> search(String keyword, String category, Pageable pageable) {
+        return productRepository.search(normalize(keyword), normalize(category), pageable)
                 .map(ProductResponse::from);
+    }
+
+    private static String normalize(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
     }
 
     public ProductResponse findById(Long id) {

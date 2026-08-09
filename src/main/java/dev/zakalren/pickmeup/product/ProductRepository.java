@@ -1,5 +1,7 @@
 package dev.zakalren.pickmeup.product;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +15,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByCategory(String category);
 
     boolean existsByName(String name);
+
+    // Both filters are optional (null skips the corresponding condition) so the
+    // catalog listing and keyword/category search share a single query path.
+    @Query("SELECT p FROM Product p WHERE " +
+            "(:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:category IS NULL OR p.category = :category)")
+    Page<Product> search(@Param("keyword") String keyword, @Param("category") String category, Pageable pageable);
 
     // Atomic conditional decrement: the WHERE guard makes overselling
     // impossible under concurrency (the row lock serializes writers), and
