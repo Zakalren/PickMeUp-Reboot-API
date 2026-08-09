@@ -74,6 +74,7 @@ public class SignupRateLimitTest {
                 "Private",
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678",
+                "USER",
                 LocalDateTime.now()
         );
         given(userService.signup(any(UserSignupRequest.class))).willReturn(response);
@@ -105,6 +106,7 @@ public class SignupRateLimitTest {
                 "Private",
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678",
+                "USER",
                 LocalDateTime.now()
         );
         given(userService.signup(any(UserSignupRequest.class))).willReturn(response);

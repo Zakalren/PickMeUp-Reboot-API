@@ -131,6 +131,7 @@ public class UserServiceTest {
             // then
             assertThat(response.serviceNumber()).isEqualTo("21-12345678");
             assertThat(response.name()).isEqualTo("KIM");
+            assertThat(response.role()).isEqualTo("USER");
         }
 
         @Test
