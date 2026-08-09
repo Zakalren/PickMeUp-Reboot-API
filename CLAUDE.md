@@ -39,6 +39,12 @@ Goals:
 - All changes land via branch → PR → CI → review → merge, like a team
   project (no direct push to main). Full process: /pr-workflow skill
   (`.claude/skills/pr-workflow/SKILL.md`).
+- **Before running `gh pr create`, actually read `.claude/skills/pr-workflow/SKILL.md`
+  and `.github/pull_request_template.md` and follow them** — fill the
+  template's real sections (요약/변경사항/검증/체크리스트, in Korean), don't
+  freehand a generic English Summary/Test-plan body. This was missed once
+  (PRs #17/#18 opened with the wrong format, had to be rewritten) — don't
+  repeat it.
 - Commit messages: plain verb-first (e.g., "Implement CartItemService#add
   unit test", "Add session-based authentication"). No conventional commits
   prefix like "feat:" or "fix:".
