@@ -13,6 +13,7 @@ public record UserResponse(
         String rank,
         LocalDate dateOfBirth,
         String telNumber,
+        String role,
         LocalDateTime createdAt
 ) {
     public static UserResponse from(User user) {
@@ -24,6 +25,7 @@ public record UserResponse(
                 user.getRank(),
                 user.getDateOfBirth(),
                 user.getTelNumber(),
+                user.getRole().name(),
                 user.getCreatedAt()
         );
     }

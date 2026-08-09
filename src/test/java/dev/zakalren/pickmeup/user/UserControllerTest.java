@@ -62,6 +62,7 @@ public class UserControllerTest {
                 "Private",
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678",
+                "USER",
                 LocalDateTime.now()
         );
 
@@ -184,6 +185,7 @@ public class UserControllerTest {
                 "Private",
                 LocalDate.of(2002, 11, 8),
                 "010-1234-5678",
+                "USER",
                 LocalDateTime.now()
         );
 
@@ -193,6 +195,7 @@ public class UserControllerTest {
         mockMvc.perform(get("/api/users/me")
                         .with(user("21-12345678").roles("ROLE")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.serviceNumber").value("21-12345678"));
+                .andExpect(jsonPath("$.serviceNumber").value("21-12345678"))
+                .andExpect(jsonPath("$.role").value("USER"));
     }
 }
