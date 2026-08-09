@@ -25,6 +25,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -58,7 +60,7 @@ public class ProductControllerTest {
     @DisplayName("Find all products without login test")
     void findAll_public() throws Exception {
         // given
-        given(productService.findAll(any(Pageable.class)))
+        given(productService.search(isNull(), isNull(), any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(chips)));
 
         // when & then: 상품 조회는 비로그인도 허용, PagedModel 포맷(content + page)으로 응답
@@ -74,7 +76,7 @@ public class ProductControllerTest {
     @DisplayName("Pageable request param binding test")
     void findAll_bindsPageable() throws Exception {
         // given
-        given(productService.findAll(any(Pageable.class))).willReturn(Page.empty());
+        given(productService.search(isNull(), isNull(), any(Pageable.class))).willReturn(Page.empty());
 
         // when: 쿼리 파라미터로 페이지 지정
         mockMvc.perform(get("/api/products")
@@ -84,9 +86,24 @@ public class ProductControllerTest {
 
         // then: 파라미터가 Pageable로 바인딩되어 서비스까지 전달됨
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(productService).findAll(captor.capture());
+        verify(productService).search(isNull(), isNull(), captor.capture());
         assertThat(captor.getValue().getPageNumber()).isEqualTo(1);
         assertThat(captor.getValue().getPageSize()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Search by keyword and category test")
+    void findAll_withKeywordAndCategory() throws Exception {
+        // given
+        given(productService.search(eq("chip"), eq("Snack"), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(chips)));
+
+        // when & then: keyword/category 쿼리 파라미터가 서비스로 그대로 전달됨
+        mockMvc.perform(get("/api/products")
+                        .param("keyword", "chip")
+                        .param("category", "Snack"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Chips"));
     }
 
     @Test

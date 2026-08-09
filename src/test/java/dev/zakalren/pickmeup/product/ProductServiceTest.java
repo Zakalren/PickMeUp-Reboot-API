@@ -46,24 +46,55 @@ public class ProductServiceTest {
     }
 
     @Nested
-    @DisplayName("Find All")
-    class FindAll {
+    @DisplayName("Search")
+    class Search {
 
         @Test
-        @DisplayName("findAll maps entities to a response page")
-        void findAll_mapsToResponsePage() {
+        @DisplayName("search maps entities to a response page")
+        void search_mapsToResponsePage() {
             // given
             Pageable pageable = PageRequest.of(0, 20);
-            given(productRepository.findAll(pageable))
+            given(productRepository.search(null, null, pageable))
                     .willReturn(new PageImpl<>(List.of(chips()), pageable, 1));
 
             // when
-            Page<ProductResponse> result = productService.findAll(pageable);
+            Page<ProductResponse> result = productService.search(null, null, pageable);
 
             // then
             assertThat(result.getTotalElements()).isEqualTo(1);
             assertThat(result.getContent().get(0).name()).isEqualTo("Chips");
             assertThat(result.getContent().get(0).price()).isEqualTo(1000);
+        }
+
+        @Test
+        @DisplayName("search blank keyword/category is normalized to null")
+        void search_blankFiltersNormalizedToNull() {
+            // given
+            Pageable pageable = PageRequest.of(0, 20);
+            given(productRepository.search(null, null, pageable))
+                    .willReturn(new PageImpl<>(List.of(chips()), pageable, 1));
+
+            // when
+            Page<ProductResponse> result = productService.search("  ", " ", pageable);
+
+            // then: repository receives normalized null, not the blank strings
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            verify(productRepository).search(null, null, pageable);
+        }
+
+        @Test
+        @DisplayName("search trims and forwards non-blank keyword/category")
+        void search_forwardsTrimmedFilters() {
+            // given
+            Pageable pageable = PageRequest.of(0, 20);
+            given(productRepository.search("chips", "Snack", pageable))
+                    .willReturn(new PageImpl<>(List.of(chips()), pageable, 1));
+
+            // when
+            productService.search(" chips ", " Snack ", pageable);
+
+            // then
+            verify(productRepository).search("chips", "Snack", pageable);
         }
     }
 

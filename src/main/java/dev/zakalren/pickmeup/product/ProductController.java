@@ -21,13 +21,15 @@ public class ProductController {
 
     @GetMapping
     public ResponseEntity<PagedModel<ProductResponse>> findAll(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category,
             // Unbounded findAll() grows with the catalog; default sort keeps
             // the page order deterministic across identical requests
             @PageableDefault(size = 20, sort = "id") Pageable pageable
     ) {
         // PagedModel keeps the JSON shape stable; serializing PageImpl
         // directly is unsupported (its structure may change between releases)
-        return ResponseEntity.ok(new PagedModel<>(productService.findAll(pageable)));
+        return ResponseEntity.ok(new PagedModel<>(productService.search(keyword, category, pageable)));
     }
 
     @GetMapping("/{id}")
