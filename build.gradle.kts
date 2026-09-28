@@ -23,10 +23,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
     // Login rate limiting: token buckets (bucket4j) stored per client IP
     // in a bounded Caffeine cache (version managed by the Boot BOM)
-    implementation("com.bucket4j:bucket4j_jdk17-core:8.19.0")
+    implementation("com.bucket4j:bucket4j_jdk17-core:8.20.0")
     implementation("com.github.ben-manes.caffeine:caffeine")
     // Boot 4 ships Flyway auto-configuration in its own module (like h2console)
     implementation("org.springframework.boot:spring-boot-flyway")
